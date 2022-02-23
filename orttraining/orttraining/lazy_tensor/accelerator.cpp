@@ -136,8 +136,12 @@ void Accelerator::DebugRun(torch::jit::Stack& stack) {
   OrtRun(stack);
   PytorchRun(copy);
   ORT_ENFORCE(CompareStack(stack, copy),
-              "ORT and Pytorch must generate the same results \
-              but tensor types or shapes are different.");
+              "ORT and Pytorch must generate the same results "
+              "but tensor types, shapes or content are different. "
+              "Use, e.g., ORT_LT_RELATIVE_TOLERANCE=1e-3 and "
+              "ORT_LT_ABSOLUTE_TOLERANCE=1e-4 "
+              "to increase the content tolerance, if "
+              "the difference is due to numerical errors.");
 }
 
 void Accelerator::Run(torch::jit::Stack& stack) {
