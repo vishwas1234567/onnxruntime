@@ -1838,21 +1838,12 @@ Status InferenceSession::Run(const RunOptions& run_options,
     FeedsFetchesInfo info(feed_names, output_names, session_state_->GetOrtValueNameIdxMap());
     FeedsFetchesManager feeds_fetches_manager{std::move(info)};
 
-    // If the caller provides locations for fetches, we populate them.
-    // Otherwise, we populate the locations from session_state_.
-    // Those device information are ignored when fetches are
-    // pre-allocated by the caller.
-    auto& fetch_info = feeds_fetches_manager.GetMutableFetchesDeviceCopyInfo();
     if (p_fetches_device_info) {
       // populate the target device info. ignored if pre-allocated fetches are provided
       const auto& fetch_device_info = *p_fetches_device_info;
+      auto& fetch_info = feeds_fetches_manager.GetMutableFetchesDeviceCopyInfo();
       for (size_t i = 0, end = output_names.size(); i < end; ++i) {
         fetch_info[i].target_device = fetch_device_info[i];
-      }
-    } else {
-      for (size_t i = 0, end = output_names.size(); i < end; ++i) {
-        const auto& info_i = utils::FindMemoryInfoForValue(*session_state_, output_names.at(i));
-        fetch_info[i].target_device = info_i.device;
       }
     }
 

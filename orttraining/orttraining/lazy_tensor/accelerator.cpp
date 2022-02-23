@@ -294,10 +294,9 @@ CompiledObject Accelerator::Compile(
   }
 
   // Memory info for all tensors.
-  // Assume all inputs and outputs are on the same device.
+  // Assume all inputs are on the same device.
   OrtDevice shared_device = CheckAndGetTensorDevice(args);
-  // Duplicate device info for each output tensor.
-  // TODO: Force scalar to be on CPU since at::Scalar is CPU value.
+  // Duplicate device info for putting output tensors on the shared device.
   std::vector<OrtDevice> fetches_device_info(fetch_names.size(), shared_device);
 
   // Create a callable which feeds inputs to ORT
