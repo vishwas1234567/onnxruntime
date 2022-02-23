@@ -1851,8 +1851,8 @@ Status InferenceSession::Run(const RunOptions& run_options,
       }
     } else {
       for (size_t i = 0, end = output_names.size(); i < end; ++i) {
-        const auto& info = utils::FindMemoryInfoForValue(*session_state_, output_names.at(i));
-        fetch_info[i].target_device = info.device;
+        const auto& info_i = utils::FindMemoryInfoForValue(*session_state_, output_names.at(i));
+        fetch_info[i].target_device = info_i.device;
       }
     }
 

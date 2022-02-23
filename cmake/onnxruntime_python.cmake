@@ -55,14 +55,17 @@ if (onnxruntime_ENABLE_LAZY_TENSOR)
   find_library(TORCH_PYTHON_LIBRARY torch_python PATHS "${TORCH_INSTALL_PREFIX}/lib")
 
   file(GLOB onnxruntime_lazy_tensor_extension_srcs CONFIGURE_DEPENDS
-    "${ORTTRAINING_ROOT}/orttraining/lazy_tensor/*.cpp"
-    )
+    "${ORTTRAINING_ROOT}/orttraining/lazy_tensor/*.cpp")
 
+  file(GLOB onnxruntime_lazy_tensor_extension_all "${ORTTRAINING_ROOT}/orttraining/lazy_tensor/*")
+  set_property(SOURCE ${onnxruntime_lazy_tensor_extension_all} PROPERTY COMPILE_FLAGS -Wno-unused-parameter)
   set_source_files_properties("${ORTTRAINING_ROOT}/orttraining/lazy_tensor/register.cpp" PROPERTIES COMPILE_FLAGS -Wno-unused-parameter)
   set_source_files_properties("${ORTTRAINING_ROOT}/orttraining/lazy_tensor/accelerator.h" PROPERTIES COMPILE_FLAGS -Wno-unused-parameter)
   set_source_files_properties("${ORTTRAINING_ROOT}/orttraining/lazy_tensor/accelerator.cpp" PROPERTIES COMPILE_FLAGS -Wno-unused-parameter)
   set_source_files_properties("${ORTTRAINING_ROOT}/orttraining/lazy_tensor/bridge.h" PROPERTIES COMPILE_FLAGS -Wno-unused-parameter)
   set_source_files_properties("${ORTTRAINING_ROOT}/orttraining/lazy_tensor/bridge.cpp" PROPERTIES COMPILE_FLAGS -Wno-unused-parameter)
+  set_source_files_properties("${ORTTRAINING_ROOT}/orttraining/lazy_tensor/debug.h" PROPERTIES COMPILE_FLAGS -Wno-unused-parameter)
+  set_source_files_properties("${ORTTRAINING_ROOT}/orttraining/lazy_tensor/debug.cpp" PROPERTIES COMPILE_FLAGS -Wno-unused-parameter)
 
   list(APPEND onnxruntime_pybind_srcs
               ${onnxruntime_lazy_tensor_extension_srcs})

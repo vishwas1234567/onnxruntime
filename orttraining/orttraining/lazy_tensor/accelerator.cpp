@@ -185,7 +185,7 @@ static void PropagateArgTypes(
 }
 
 // ONNX exporter is written in Python, so
-// this function may calls some Python functions.
+// this function may call some Python functions.
 // Be aware of GIL issue.
 // The returned value is the path to exported
 // ONNX file.

@@ -3,7 +3,8 @@
 
 #include "debug.h"
 #include <sstream>
-#icnlude "flag.h"
+#include "core/common/common.h"
+#include "flags.h"
 
 namespace onnxruntime {
 namespace lazytensor {
@@ -31,6 +32,18 @@ std::string ToString(const c10::IValue& value) {
     ss << "Scalar<" << c10::toString(value.toScalar().type()) << ">";
   } else {
     ORT_THROW("Unsupported type.");
+  }
+  return ss.str();
+}
+
+// Print elements in the stack.
+std::string ToString(const at::ArrayRef<c10::IValue>& values) {
+  std::stringstream ss;
+  for (size_t i = 0; i < values.size(); i++) {
+    ss << ToString(values.at(i));
+    if (i != values.size() - 1) {
+      ss << ", ";
+    }
   }
   return ss.str();
 }
@@ -83,18 +96,6 @@ bool CompareStack(
     }
   }
   return true;
-}
-
-// Print last n elements in the stack.
-std::string ToString(const at::ArrayRef<c10::IValue>& values) {
-  std::stringstream ss;
-  for (size_t i = 0; i < values.size(); i++) {
-    ss << ToString(values.at(i));
-    if (i != values.size() - 1) {
-      ss << ", ";
-    }
-  }
-  return ss.str();
 }
 }  // namespace lazytensor
 }  // namespace onnxruntime
