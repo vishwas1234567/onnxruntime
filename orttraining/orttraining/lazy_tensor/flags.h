@@ -6,6 +6,10 @@ namespace lazytensor {
 // This file contains environment variables that control
 // the behavior of ORT as LazyTensor's backend.
 // Most variables are for debug purpose.
+// Example:
+//   ORT_LT_CHECK_TENSOR_CONTENT=1 ORT_LT_DUMP_GRAPH=1
+//   ORT_LT_DUMP_INPUTS_OUTPUTS=1 ORT_LT_CHECK_BASELINE=1
+//   ORT_LT_RELATIVE_TOLERANCE=1e-3 python main.py
 
 // When returing true, we dump the inputs and outputs
 // when ORT (and Pytorch when ORTLTCHECKBASELINE is set to 1)
@@ -24,6 +28,9 @@ bool DumpGraph();
 //  CheckBaseline -> CheckTensorContent -> AbsoluteTolerance
 //                                   '---> RelativeTolerance
 bool CheckBaseline();
+// If this function returns true, all aten ops seen by ORT
+// will be printed. We also tag if these are supported or not.
+bool DumpAtenOpHistory();
 // If this function returns true, check tensor's elements
 // when CheckBaseline() returns true.
 bool CheckTensorContent();

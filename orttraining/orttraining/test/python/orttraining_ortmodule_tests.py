@@ -139,6 +139,15 @@ def run_data_sampler_tests(cwd, log):
     run_subprocess(command, cwd=cwd, log=log).check_returncode()
 
 
+def run_lazy_tensor_tests(cwd, log):
+    log.debug('Running: Lazy Tensor tests')
+
+    command = [sys.executable, '-m', 'pytest',
+               '-sv', 'orttraining_test_lort.py.py']
+
+    run_subprocess(command, cwd=cwd, log=log).check_returncode()
+
+
 def main():
     args = parse_arguments()
     cwd = args.cwd
@@ -173,6 +182,9 @@ def main():
 
     run_experimental_gradient_graph_tests(cwd, log)
 
+    # Uncomment this line to enable tests once LazyTensor
+    # is merged into Pytorch's main branch.
+    #run_lazy_tensor_tests(cwd, log)
     return 0
 
 

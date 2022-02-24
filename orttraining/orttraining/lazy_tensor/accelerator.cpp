@@ -64,9 +64,18 @@ bool Accelerator::Supported(const torch::jit::Node* node) {
     case aten::abs:
     case aten::max:
     case aten::min:
+      if (DumpAtenOpHistory()) {
+        std::cout << "Supported op: "
+                  << node->kind().toDisplayString() << std::endl;
+      }
       return true;
-    default:
+    default: {
+      if (DumpAtenOpHistory()) {
+        std::cout << "Unsupported op: "
+                  << node->kind().toDisplayString() << std::endl;
+      }
       return false;
+    }
   }
 }
 

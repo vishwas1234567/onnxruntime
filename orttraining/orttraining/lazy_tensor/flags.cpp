@@ -40,6 +40,10 @@ bool CheckBaseline() {
   return IsEnvironmentVariableOne("ORT_LT_CHECK_BASELINE");
 }
 
+bool DumpAtenOpHistory() {
+  return IsEnvironmentVariableOne("ORT_LT_DUMP_ATEN_OP_HISTORY");
+}
+
 bool CheckTensorContent() {
   ORT_ENFORCE(CheckBaseline(), "Must set ORT_LT_CHECK_BASELINE=1 to check tensor content.");
   return IsEnvironmentVariableOne("ORT_LT_CHECK_TENSOR_CONTENT");
