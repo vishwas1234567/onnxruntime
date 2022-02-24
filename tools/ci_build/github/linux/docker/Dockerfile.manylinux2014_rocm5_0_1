@@ -178,6 +178,7 @@ COPY build_scripts/finalize.sh \
      build_scripts/requirements-base-tools.txt \
      /build_scripts/
 COPY build_scripts/requirements-tools/* /build_scripts/requirements-tools/
+RUN yum makecache fast
 RUN manylinux-entrypoint /build_scripts/finalize.sh && rm -rf /build_scripts
 
 ENV SSL_CERT_FILE=/opt/_internal/certs.pem
@@ -186,7 +187,7 @@ CMD ["/bin/bash"]
 
 #Build manylinux2014 docker image end
 
-ARG PYTHON_VERSION=3.6
+ARG PYTHON_VERSION=3.7
 ARG TORCH_VERSION=1.10.0
 ARG OPSET_VERSION=14
 ARG INSTALL_DEPS_EXTRA_ARGS
