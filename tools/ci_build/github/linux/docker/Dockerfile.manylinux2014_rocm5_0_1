@@ -14,7 +14,7 @@ ARG LD_LIBRARY_PATH_ARG
 ARG PREPEND_PATH
 LABEL maintainer="The ManyLinux project"
 
-RUN /usr/bin/apt install hipify-clang
+RUN yum install -y hipify-clang
 
 RUN yum remove -y devtoolset\* git\* && conda remove -y cmake
 
