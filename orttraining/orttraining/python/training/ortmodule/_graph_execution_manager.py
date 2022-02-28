@@ -406,7 +406,8 @@ class GraphExecutionManager(GraphExecutionInterface):
                                           'dynamic_axes': self._input_info.dynamic_axes,
                                           'verbose': self._debug_options.logging.log_level < LogLevel.WARNING,
                                           'export_params': False,
-                                          'keep_initializers_as_inputs': True}
+                                          'keep_initializers_as_inputs': True,
+                                          'operator_export_type': torch.onnx.OperatorExportTypes.ONNX_ATEN_FALLBACK}
                 invalid_args = self._export_extra_kwargs.keys() & required_export_kwargs.keys()
                 assert len(invalid_args) == 0,\
                     f"The following PyTorch exporter arguments cannot be specified: '{invalid_args}'."
