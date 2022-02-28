@@ -1,4 +1,4 @@
-# -------------------------------------------------------------------------
+t # -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
@@ -139,7 +139,8 @@ def adaptive_avg_pool2d_gradient():
                     'overload_name': {'value': '', 'dtype': 'string'}}),
     ]
 
-CustomGradientRegistry.register_custom_stop_gradient_edges([0], 'org.pytorch.aten', 'ATen', 'aten::multinomial', '')
+CustomGradientRegistry.register_custom_stop_gradient_edges([0], 'com.microsoft', 'ATenOp', 'aten::argmax', '')
+CustomGradientRegistry.register_custom_stop_gradient_edges([0], 'com.microsoft', 'ATenOp', 'aten::multinomial', '')
 
 @register_gradient('org.pytorch.aten', 'ATen', 'aten::binary_cross_entropy_with_logits', '')
 def binary_cross_entropy_with_logits_gradient():

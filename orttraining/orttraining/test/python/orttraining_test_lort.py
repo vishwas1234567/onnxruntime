@@ -75,10 +75,10 @@ def run_MNIST():
             output = F.log_softmax(x, dim=1)
             return output
 
-    def run(device, x, y):
+    def run(model, device, x, y):
+        model.to(device)
         x = x.to(device)
         y = y.to(device)
-        model = Net().to(device)
         output = model(x)
         loss = F.nll_loss(output, y)
         loss.backward()
@@ -87,15 +87,16 @@ def run_MNIST():
 
     x = torch.rand((64, 1, 28, 28), dtype=torch.float32)
     y = torch.randint(0, 9, (64,), dtype=torch.int64)
+    model = Net()
 
     # Baseline.
-    loss, grads = run('cpu', x, y)
+    loss, grads = run(model, 'cpu', x, y)
     # ORT result.
-    loss_new, grads_new = run('lazy', x, y)
+    loss_new, grads_new = run(model, 'lazy', x, y)
 
-    torch.allclose(loss, loss_new.to('cpu'))
+    assert torch.allclose(loss.to('lazy'), loss_new)
     for g, g_new in zip(grads, grads_new):
-        torch.allclose(g, g_new.to('cpu'))
+        assert torch.allclose(g.to('lazy'), g_new)
 
 
 def test_MNIST():
