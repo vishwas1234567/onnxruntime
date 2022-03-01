@@ -46,11 +46,15 @@ def main():
     ]
 
     configs['MI100_32G'] = [
-        Config(True, 128, 200, 20, ""),
-        Config(True, 512, 30, 80, ""),
-        Config(False, 128, 108, 20, ""),
-        Config(False, 512, 16, 80, ""),
+        Config(True, 128, 30, 20, ""),
     ]
+
+    # configs['MI100_32G'] = [
+    #     Config(True, 128, 200, 20, ""),
+    #     Config(True, 512, 30, 80, ""),
+    #     Config(False, 128, 108, 20, ""),
+    #     Config(False, 512, 16, 80, ""),
+    # ]
  
     # run BERT training
     for config in configs[args.gpu_sku]:
