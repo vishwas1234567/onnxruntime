@@ -1652,14 +1652,18 @@ def run_onnxruntime_tests(args, source_dir, ctest_path, build_dir, configs):
 
             if args.enable_lazy_tensor:
                 # run lazy tensor test
+                lazy_tensor_env = {'ORT_LT_DUMP_GRAPH': '1',
+                                   'ORT_LT_DUMP_INPUTS_OUTPUTS': '1',
+                                   'ORT_LT_CHECK_BASELINE': '1',
+                                   'ORT_LT_DUMP_ATEN_OP_HISTORY': '1'}
                 cmd = [sys.executable,
                        os.path.join(source_dir,
-                          'orttraining',
-                          'orttraining',
-                          'test',
-                          'python',
-                          'orttraining_test_lort.py')]
-                run_subprocess(cmd)
+                                    'orttraining',
+                                    'orttraining',
+                                    'test',
+                                    'python',
+                                    'orttraining_test_lort.py')]
+                run_subprocess(cmd, env=lazy_tensor_env)
             try:
                 import onnx  # noqa
                 onnx_test = True
