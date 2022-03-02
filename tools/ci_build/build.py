@@ -1083,7 +1083,7 @@ def generate_build_tree(cmake_path, source_dir, build_dir, cuda_home, cudnn_home
     else:
         add_cmake_define_without_override(cmake_extra_defines, "onnxruntime_PYBIND_EXPORT_OPSCHEMA", "OFF")
 
-    if args.build_eager_mode:
+    if args.build_eager_mode or args.enable_lazy_tensor:
         import torch
         cmake_args += ["-Donnxruntime_PREBUILT_PYTORCH_PATH=%s" % os.path.dirname(torch.__file__)]
         cmake_args += ['-D_GLIBCXX_USE_CXX11_ABI=' + str(int(torch._C._GLIBCXX_USE_CXX11_ABI))]
@@ -1548,7 +1548,7 @@ def run_onnxruntime_tests(args, source_dir, ctest_path, build_dir, configs):
         # Adding the torch lib path for loading DLLs for onnxruntime in eager mode
         # This works for Python 3.7 and below, and doesn't work for Python 3.8+
         # User will need to import torch before onnxruntime and it will work for all versions
-        if args.build_eager_mode and is_windows():
+        if (args.build_eager_mode or args.enable_lazy_tensor) and is_windows():
             import torch
             dll_path_list.append(os.path.join(os.path.dirname(torch.__file__), 'lib'))
 
@@ -1650,6 +1650,16 @@ def run_onnxruntime_tests(args, source_dir, ctest_path, build_dir, configs):
                                                  'test',
                                                  'external_transformers_test.py')], cwd=cwd, dll_path=dll_path)
 
+            if args.enable_lazy_tensor:
+                # run lazy tensor test
+                cmd = [sys.executable,
+                       os.path.join(source_dir,
+                          'orttraining',
+                          'orttraining',
+                          'test',
+                          'python',
+                          'orttraining_test_lort.py')]
+                run_subprocess(cmd)
             try:
                 import onnx  # noqa
                 onnx_test = True
