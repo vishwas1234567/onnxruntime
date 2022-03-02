@@ -139,15 +139,6 @@ def run_data_sampler_tests(cwd, log):
     run_subprocess(command, cwd=cwd, log=log).check_returncode()
 
 
-def run_lazy_tensor_tests(cwd, log):
-    log.debug('Running: Lazy Tensor tests')
-
-    command = [sys.executable, '-m', 'pytest',
-               '-sv', 'orttraining_test_lort.py.py']
-
-    run_subprocess(command, cwd=cwd, log=log).check_returncode()
-
-
 def main():
     args = parse_arguments()
     cwd = args.cwd
