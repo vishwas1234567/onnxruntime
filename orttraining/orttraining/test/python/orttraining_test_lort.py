@@ -82,7 +82,6 @@ def run_MNIST():
         output = model(x)
         loss = F.nll_loss(output, y)
         loss.backward()
-        ltm.mark_step()
         return loss, (param.grad for param in model.parameters())
 
     x = torch.rand((64, 1, 28, 28), dtype=torch.float32)
@@ -98,11 +97,9 @@ def run_MNIST():
     for g, g_new in zip(grads, grads_new):
         assert torch.allclose(g.to('lazy'), g_new)
 
-
 def test_MNIST():
     for _ in range(5):
         run_MNIST()
-
 
 if __name__ == '__main__':
     # The first run of Pytorch JIT is actual eager mode,

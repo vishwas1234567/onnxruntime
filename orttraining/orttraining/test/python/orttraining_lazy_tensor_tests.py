@@ -21,7 +21,7 @@ def run_lazy_tensor_tests():
 def main():
     # TODO: Uncomment this test after LazyTensor is merged into
     # Pytorch's main branch.
-    #run_lazy_tensor_tests()
+    run_lazy_tensor_tests()
     return 0
 
 
