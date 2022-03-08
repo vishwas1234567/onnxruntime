@@ -190,13 +190,9 @@ static void MoveAllNodeOutputs(Graph& graph, Node& src_node, Node& target_node) 
 
 #endif  // !defined(ORT_MINIMAL_BUILD)
 
-//----------------------------
-//--- end of local helpers ---
-//----------------------------
+#if !defined(ORT_MINIMAL_BUILD) || defined(ORT_ENABLE_RUNTIME_OPTIMIZATION_IN_MINIMAL_BUILD)
 
-#if !defined(ORT_MINIMAL_BUILD)
-
-int GetIndexFromName(const Node& node, const std::string& name, bool is_input) {
+static int GetIndexFromName(const Node& node, const std::string& name, bool is_input) {
   const auto& node_args = is_input ? node.InputDefs() : node.OutputDefs();
   auto itr = std::find_if(node_args.begin(), node_args.end(),
                           [&name](const NodeArg* node_arg) { return node_arg->Name() == name; });
@@ -206,38 +202,11 @@ int GetIndexFromName(const Node& node, const std::string& name, bool is_input) {
   return static_cast<int>(index);
 }
 
-int GetNodeInputIndexFromInputName(const Node& node, const std::string& input_name) {
-  return GetIndexFromName(node, input_name, true);
-}
-
-int GetNodeOutputIndexFromOutputName(const Node& node, const std::string& output_name) {
-  return GetIndexFromName(node, output_name, false);
-}
-
-bool IsSupportedOptypeVersionAndDomain(const Node& node,
-                                       const std::string& op_type,
-                                       const std::initializer_list<ONNX_NAMESPACE::OperatorSetVersion>& versions,
-                                       const std::string& domain) {
-  return (node.OpType() == op_type && !node.Op()->Deprecated() &&
-          MatchesOpSinceVersion(node, versions) && MatchesOpSetDomain(node, domain));
-}
-
-bool IsSupportedOptypeVersionAndDomain(const Node& node,
-                                       const char* op_type,
-                                       const std::initializer_list<ONNX_NAMESPACE::OperatorSetVersion>& versions,
-                                       const char* domain) {
-  return IsSupportedOptypeVersionAndDomain(node, std::string(op_type), versions, std::string(domain));
-}
-
-bool MatchesOpSinceVersion(const Node& node, const std::initializer_list<ONNX_NAMESPACE::OperatorSetVersion>& versions) {
+bool MatchesOpSinceVersion(const Node& node, std::initializer_list<ONNX_NAMESPACE::OperatorSetVersion> versions) {
   return std::find(versions.begin(), versions.end(), node.SinceVersion()) != versions.end();
 }
 
-bool MatchesOpSinceVersion(const Node& node, const std::vector<ONNX_NAMESPACE::OperatorSetVersion>& versions) {
-  return std::find(versions.begin(), versions.end(), node.SinceVersion()) != versions.end();
-}
-
-bool MatchesOpSetDomain(const Node& node, const std::string& domain) {
+bool MatchesOpSetDomain(const Node& node, std::string_view domain) {
   const auto& node_domain = node.Domain();
   // We do a special check for the ONNX domain, as it has two aliases.
   return node_domain == domain ||
@@ -245,16 +214,36 @@ bool MatchesOpSetDomain(const Node& node, const std::string& domain) {
           (domain == kOnnxDomain || domain == kOnnxDomainAlias));
 }
 
-bool IsSupportedProvider(const Node& node,
-                         const std::unordered_set<std::string>& compatible_providers) {
-  return !(!compatible_providers.empty() &&
-           compatible_providers.find(node.GetExecutionProviderType()) == compatible_providers.end());
+bool IsSupportedOptypeVersionAndDomain(const Node& node,
+                                       std::string_view op_type,
+                                       std::initializer_list<ONNX_NAMESPACE::OperatorSetVersion> versions,
+                                       std::string_view domain) {
+  return (node.OpType() == op_type && 
+      // we don't have op schemas in the minimal build so there's no way to check the deprecated flag
+#if !defined(ORT_MINIMAL_BUILD)
+      !node.Op()->Deprecated() &&
+#endif
+          MatchesOpSinceVersion(node, versions) && MatchesOpSetDomain(node, domain));
+}
+#endif  // !defined(ORT_MINIMAL_BUILD) || defined(ORT_ENABLE_RUNTIME_OPTIMIZATION_IN_MINIMAL_BUILD)
+
+//----------------------------
+//--- end of local helpers ---
+//----------------------------
+
+#if !defined(ORT_MINIMAL_BUILD)
+bool MatchesOpSinceVersion(const Node& node, gsl::span<const ONNX_NAMESPACE::OperatorSetVersion> versions) {
+  return std::find(versions.begin(), versions.end(), node.SinceVersion()) != versions.end();
 }
 
-const ONNX_NAMESPACE::AttributeProto* GetNodeAttribute(const Node& node, const std::string& attr_name) {
-  const auto& attrs = node.GetAttributes();
-  const auto iter = attrs.find(attr_name);
-  return iter == attrs.end() ? nullptr : &iter->second;
+int GetNodeInputIndexFromInputName(const Node& node, const std::string& input_name) {
+  return GetIndexFromName(node, input_name, true);
+}
+
+bool IsSupportedProvider(const Node& node,
+                         const InlinedHashSet<std::string_view>& compatible_providers) {
+  return !(!compatible_providers.empty() &&
+           compatible_providers.find(node.GetExecutionProviderType()) == compatible_providers.end());
 }
 
 /** Checks for nodes with >= 1 outputs, if only one of the outputs is input to downstream Operators.
@@ -445,7 +434,7 @@ bool NodeArgIsConstant(const Graph& graph, const NodeArg& node_arg) {
 }
 
 bool AllNodeInputsAreConstant(const Graph& graph, const Node& node, InitializedTensorSet& constant_inputs,
-                              const std::unordered_set<std::string>& excluded_initializers) {
+                              const InlinedHashSet<std::string>& excluded_initializers) {
   // clear so we have a known state. if we fail part way through we go back to this state.
   constant_inputs.clear();
 
@@ -487,26 +476,6 @@ const Node* FirstParentByType(const Node& node, const std::string& parent_type) 
     }
   }
   return nullptr;
-}
-
-NodeArg& AddInitializer(Graph& graph, const ONNX_NAMESPACE::TensorProto& new_initializer) {
-  // sanity check as AddInitializedTensor silently ignores attempts to add a duplicate initializer
-  const ONNX_NAMESPACE::TensorProto* existing = nullptr;
-  ORT_ENFORCE(!graph.GetInitializedTensor(new_initializer.name(), existing),
-              "Initializer with same name exists. Name:", new_initializer.name());
-
-  graph.AddInitializedTensor(new_initializer);
-
-  ONNX_NAMESPACE::TypeProto new_type;
-  auto* typeproto_tensor = new_type.mutable_tensor_type();
-  typeproto_tensor->set_elem_type(new_initializer.data_type());
-
-  auto* shape = typeproto_tensor->mutable_shape();
-  for (auto dim : new_initializer.dims()) {
-    shape->add_dim()->set_dim_value(dim);
-  }
-
-  return graph.GetOrCreateNodeArg(new_initializer.name(), &new_type);
 }
 
 void ReplaceDownstreamNodeInput(Graph& graph, Node& node, int output_idx, Node& replacement, int replacement_output_idx) {
@@ -570,13 +539,9 @@ void FinalizeNodeFusion(Graph& graph, Node& first_node, Node& second_node) {
   graph.RemoveNode(second_node.Index());
 }
 
-void FinalizeNodeFusion(Graph& graph, const std::vector<std::reference_wrapper<Node>>& nodes, Node& replacement_node) {
-  FinalizeNodeFusion(graph, nodes, replacement_node, replacement_node);
-}
-
-void FinalizeNodeFusion(Graph& graph, const std::vector<std::reference_wrapper<Node>>& nodes, Node& replacement_node_start,
+void FinalizeNodeFusion(Graph& graph, gsl::span<const std::reference_wrapper<Node>> nodes, Node& replacement_node_start,
                         Node& replacement_node_end) {
-  MoveAllNodeInputEdges(graph, nodes.front(), replacement_node_start);
+  MoveAllNodeInputEdges(graph, *nodes.begin(), replacement_node_start);
   MoveAllNodeOutputs(graph, nodes.back(), replacement_node_end);
 
   for (Node& node : nodes) {
@@ -603,7 +568,7 @@ const Node* GetInputNode(const Node& node, int arg_index) {
   return &(edge->GetNode());
 }
 
-inline std::string ToString(const std::vector<ONNX_NAMESPACE::OperatorSetVersion>& versions) {
+inline std::string ToString(gsl::span<const ONNX_NAMESPACE::OperatorSetVersion> versions) {
   std::ostringstream output;
   if (!versions.empty()) {
     // Convert all but the last element to avoid a trailing ";"
@@ -615,7 +580,8 @@ inline std::string ToString(const std::vector<ONNX_NAMESPACE::OperatorSetVersion
   return output.str();
 }
 
-bool FindPath(const Node& node, bool is_input_edge, const std::vector<EdgeEndToMatch>& edges_to_match, std::vector<const Node::EdgeEnd*>& result, const logging::Logger& logger) {
+bool FindPath(const Node& node, bool is_input_edge, gsl::span<const EdgeEndToMatch> edges_to_match,
+              std::vector<const Node::EdgeEnd*>& result, const logging::Logger& logger) {
   result.clear();
   result.reserve(edges_to_match.size());
 
@@ -665,7 +631,7 @@ bool FindPath(const Node& node, bool is_input_edge, const std::vector<EdgeEndToM
   return true;
 }
 
-bool FindPath(Graph& graph, const Node& node, bool is_input_edge, const std::vector<EdgeEndToMatch>& edges_to_match, std::vector<std::reference_wrapper<Node>>& result, const logging::Logger& logger) {
+bool FindPath(Graph& graph, const Node& node, bool is_input_edge, gsl::span<const EdgeEndToMatch> edges_to_match, std::vector<std::reference_wrapper<Node>>& result, const logging::Logger& logger) {
   result.clear();
 
   std::vector<const Node::EdgeEnd*> edge_ends;
@@ -683,7 +649,7 @@ bool FindPath(Graph& graph, const Node& node, bool is_input_edge, const std::vec
 
 bool RemoveNodesWithOneOutputBottomUp(Graph& graph, const Node& start_node) {
   std::queue<NodeIndex> q;
-  std::unordered_set<NodeIndex> removed_nodes;
+  InlinedHashSet<NodeIndex> removed_nodes;
 
   NodeIndex start_node_index = start_node.Index();
   q.push(start_node_index);
@@ -879,6 +845,40 @@ void GraphEdge::RemoveGraphEdges(Graph& graph, const std::vector<GraphEdge>& edg
 }
 
 #endif  // !defined(ORT_MINIMAL_BUILD) || defined(ORT_EXTENDED_MINIMAL_BUILD)
+
+#if !defined(ORT_MINIMAL_BUILD) || defined(ORT_ENABLE_RUNTIME_OPTIMIZATION_IN_MINIMAL_BUILD)
+
+const ONNX_NAMESPACE::AttributeProto* GetNodeAttribute(const Node& node, const std::string& attr_name) {
+  const auto& attrs = node.GetAttributes();
+  const auto iter = attrs.find(attr_name);
+  return iter == attrs.end() ? nullptr : &iter->second;
+}
+
+NodeArg& AddInitializer(Graph& graph, const ONNX_NAMESPACE::TensorProto& new_initializer) {
+  // sanity check as AddInitializedTensor silently ignores attempts to add a duplicate initializer
+  const ONNX_NAMESPACE::TensorProto* existing = nullptr;
+  ORT_ENFORCE(!graph.GetInitializedTensor(new_initializer.name(), existing),
+              "Initializer with same name exists. Name:", new_initializer.name());
+
+  graph.AddInitializedTensor(new_initializer);
+
+  ONNX_NAMESPACE::TypeProto new_type;
+  auto* typeproto_tensor = new_type.mutable_tensor_type();
+  typeproto_tensor->set_elem_type(new_initializer.data_type());
+
+  auto* shape = typeproto_tensor->mutable_shape();
+  for (auto dim : new_initializer.dims()) {
+    shape->add_dim()->set_dim_value(dim);
+  }
+
+  return graph.GetOrCreateNodeArg(new_initializer.name(), &new_type);
+}
+
+int GetNodeOutputIndexFromOutputName(const Node& node, const std::string& output_name) {
+  return GetIndexFromName(node, output_name, false);
+}
+
+#endif  // !defined(ORT_MINIMAL_BUILD) || defined(ORT_ENABLE_RUNTIME_OPTIMIZATION_IN_MINIMAL_BUILD)
 
 }  // namespace graph_utils
 }  // namespace onnxruntime
