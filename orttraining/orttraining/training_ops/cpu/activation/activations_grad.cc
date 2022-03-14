@@ -12,6 +12,7 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-result"
 #endif
+#include "core/common/eigen_common_wrapper.h"
 #include "unsupported/Eigen/SpecialFunctions"
 #if defined(_MSC_VER)
 #pragma warning(pop)
