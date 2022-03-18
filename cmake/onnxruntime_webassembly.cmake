@@ -165,6 +165,7 @@ else()
     onnxruntime_session
     onnxruntime_util
     re2::re2
+    tensorboard
   )
 
   set(EXPORTED_RUNTIME_METHODS "['stackAlloc','stackRestore','stackSave','UTF8ToString','stringToUTF8','lengthBytesUTF8']")
