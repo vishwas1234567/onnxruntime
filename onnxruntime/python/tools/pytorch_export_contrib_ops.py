@@ -65,7 +65,8 @@ def register():
         return g.op("com.microsoft::Inverse", self).setType(self.type())
     _reg(inverse)
 
-    def gelu(g, self):
+    # `approximate='aten_gelu' is a hack for BC with PyTorch > 1.11+`
+    def gelu(g, self, approximate='aten_gelu'):
         return g.op("com.microsoft::Gelu", self).setType(self.type())
     _reg(gelu)
 
