@@ -1,9 +1,8 @@
 ---
 title: Make dynamic input shape fixed
 descriptions: 
-parent: Helpers
-grand_parent: Mobile
-nav_order: 2
+parent: Mobile
+grand_parent: Reference
 ---
 
 # Making dynamic input shapes fixed
