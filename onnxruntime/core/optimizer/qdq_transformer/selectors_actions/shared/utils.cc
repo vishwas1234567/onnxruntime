@@ -56,6 +56,10 @@ static const OpVersionsAndSelector::OpVersionsMap GetMatMulOpVersionsMap() {
   return {{"MatMul", {}}};
 }
 
+static const OpVersionsAndSelector::OpVersionsMap GetGemmOpVersionsMap() {
+  return {{"Gemm", {}}};
+}
+
 /* Selector rules registration related */
 void RegisterMiscSelectors(Selectors& qdq_selectors) {
   /* register selectors for miscellaneous ops */
@@ -99,6 +103,13 @@ void RegisterMatMulSelector(Selectors& qdq_selectors) {
                                  std::move(selector));
 }
 
+void RegisterGemmSelector(Selectors& qdq_selectors) {
+  /* register selector for gemm op */
+  std::unique_ptr<NodeGroupSelector> selector = std::make_unique<GemmNodeGroupSelector>();
+  qdq_selectors.RegisterSelector(GetGemmOpVersionsMap(),
+                                 std::move(selector));
+}
+
 void SelectorManager::CreateSelectors() {
   RegisterMiscSelectors(qdq_selectors_);
   RegisterUnarySelectors(qdq_selectors_);
@@ -106,6 +117,7 @@ void SelectorManager::CreateSelectors() {
   RegisterVariadicSelectors(qdq_selectors_);
   RegisterConvSelector(qdq_selectors_);
   RegisterMatMulSelector(qdq_selectors_);
+  RegisterGemmSelector(qdq_selectors_);
 }
 
 void SelectorManager::InitializeSelectorsMap() {
