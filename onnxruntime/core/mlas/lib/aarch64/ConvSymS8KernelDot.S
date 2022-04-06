@@ -90,7 +90,6 @@ Return Value:
         cmp     x7,2                    // OutputCount < 2 ?
         str     d11,[sp,#24]
         add     x16,x2,x5               // x16 -> C1
-        str     x19,[sp,#32]
         lsl     x3,x3,#3                // KernelSize * sizeof(int8_t*)
         csel    x16,x2,x16,lo           // if OutputCount < 2  x16/C1 -> C0
         add     x4,x4,3                 // InputChannels align to 4
