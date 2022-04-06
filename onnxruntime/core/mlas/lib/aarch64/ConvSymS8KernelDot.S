@@ -83,8 +83,7 @@ Return Value:
 
         stp     d8,d9,[sp,#-.LConvSymFrame_SavedRegisters]!
         ldr     x8,[sp,#.LConvSymFrame_PostProcessParams]
-        ldr     w10,[sp,#.LConvSymFrame_KernelFlags]
-        stp     d10,d11,[sp,#16]
+        str     d10,[sp,#16]
         stp     x19,x20,[sp,#32]
         stp     x21,x22,[sp,#48]
 
