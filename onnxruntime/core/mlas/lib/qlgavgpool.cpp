@@ -76,8 +76,7 @@ MlasQLinearGlobalAveragePoolNchw(
     float ScaleInput,
     int32_t ZeroPointInput,
     T8Bits* Output,
-    float ScaleOutput,
-    int32_t ZeroPointOutput,
+    const MLAS_REQUANT_PARAM* RequantParam,
     size_t Channels,
     size_t ImageSize,
     int32_t* AccumulateBuffer
@@ -153,8 +152,8 @@ MlasQLinearGlobalAveragePoolNchw(
         *sum_buffer++ = vget_lane_s32(vpadd_s32(vacc, vacc), 0);
     }
 
-    MlasRequantizeOutput(AccumulateBuffer, Channels, Output, Channels, nullptr, &scale, false,
-                         static_cast<T8Bits>(ZeroPointOutput), 0, 0, 1, Channels);
+    MlasRequantizeOutput(AccumulateBuffer, Channels, Output, Channels,
+                         nullptr, RequantParam, 0, 0, 1, Channels);
 }
 
 template <typename T8Bits>
@@ -168,8 +167,7 @@ MlasQLinearGlobalAveragePoolNhwcSingleBatch(
     size_t Channels,
     size_t Stride,
     int32_t Bias,
-    float Scale,
-    T8Bits Output_zero_point,
+    const MLAS_REQUANT_PARAM* RequantParam,
     int32_t* AccumulateBuffer,
     const T8Bits* ZeroBuffer
     )
@@ -321,8 +319,8 @@ MlasQLinearGlobalAveragePoolNhwcSingleBatch(
             vst1q_s32(acc + 4, vacc_hi);
         }
     }
-    MlasRequantizeOutput(AccumulateBuffer, Channels, Output, Channels, nullptr, &Scale, false,
-                         Output_zero_point, 0, 0, 1, Channels);
+    MlasRequantizeOutput(AccumulateBuffer, Channels, Output, Channels,
+                         nullptr, RequantParam, 0, 0, 1, Channels);
 }
 
 #elif defined(MLAS_SSE2_INTRINSICS)
@@ -334,8 +332,7 @@ MlasQLinearGlobalAveragePoolNchw(
     float ScaleInput,
     int32_t ZeroPointInput,
     T8Bits* Output,
-    float ScaleOutput,
-    int32_t ZeroPointOutput,
+    const MLAS_REQUANT_PARAM* RequantParam,
     size_t Channels,
     size_t ImageSize,
     int32_t* AccumulateBuffer
@@ -427,8 +424,8 @@ MlasQLinearGlobalAveragePoolNchw(
         *sum_buffer++ = _mm_cvtsi128_si32(vsums);
     }
 
-    MlasRequantizeOutput(AccumulateBuffer, Channels, Output, Channels, nullptr, &scale, false,
-                         static_cast<T8Bits>(ZeroPointOutput), 0, 0, 1, Channels);
+    MlasRequantizeOutput(AccumulateBuffer, Channels, Output, Channels,
+                         nullptr, RequantParam, 0, 0, 1, Channels);
 }
 
 template <typename T8Bits>
@@ -442,8 +439,7 @@ MlasQLinearGlobalAveragePoolNhwcSingleBatch(
     size_t Channels,
     size_t Stride,
     int32_t Bias,
-    float Scale,
-    T8Bits Output_zero_point,
+    const MLAS_REQUANT_PARAM* RequantParam,
     int32_t* AccumulateBuffer,
     const T8Bits* ZeroBuffer
     )
@@ -697,8 +693,8 @@ MlasQLinearGlobalAveragePoolNhwcSingleBatch(
             _mm_storeu_si128(((__m128i*)acc) + 1, vacc_hi);
         }
     }
-    MlasRequantizeOutput(AccumulateBuffer, Channels, Output, Channels, nullptr, &Scale, false,
-                         Output_zero_point, 0, 0, 1, Channels);
+    MlasRequantizeOutput(AccumulateBuffer, Channels, Output, Channels,
+                         nullptr, RequantParam, 0, 0, 1, Channels);
 }
 
 #else
@@ -714,8 +710,7 @@ MlasQLinearGlobalAveragePoolNchw(
     int32_t ZeroPointInput,
     T8Bits* Output,
     float ScaleOutput,
-    int32_t ZeroPointOutput,
-    size_t Channels,
+    const MLAS_REQUANT_PARAM* RequantParam,
     size_t ImageSize,
     int32_t* /* AccumulateBuffer */
     )
@@ -826,8 +821,7 @@ MlasQLinearGlobalAveragePoolNchw<int8_t>(
     float ScaleInput,
     int32_t ZeroPointInput,
     int8_t* Output,
-    float ScaleOutput,
-    int32_t ZeroPointOutput,
+    const MLAS_REQUANT_PARAM* RequantParam,
     size_t Channels,
     size_t ImageSize,
     int32_t* AccumulateBuffer
@@ -841,8 +835,7 @@ MlasQLinearGlobalAveragePoolNchw<uint8_t>(
     float ScaleInput,
     int32_t ZeroPointInput,
     uint8_t* Output,
-    float ScaleOutput,
-    int32_t ZeroPointOutput,
+    const MLAS_REQUANT_PARAM* RequantParam,
     size_t Channels,
     size_t ImageSize,
     int32_t* AccumulateBuffer
@@ -856,8 +849,7 @@ MlasQLinearGlobalAveragePoolNhwc<int8_t>(
     float ScaleInput,
     int32_t ZeroPointInput,
     int8_t* Output,
-    float ScaleOutput,
-    int32_t ZeroPointOutput,
+    const MLAS_REQUANT_PARAM* RequantParam,
     size_t Batch,
     size_t ImageSize,
     size_t Stride,
@@ -874,8 +866,7 @@ MlasQLinearGlobalAveragePoolNhwc<uint8_t>(
     float ScaleInput,
     int32_t ZeroPointInput,
     uint8_t* Output,
-    float ScaleOutput,
-    int32_t ZeroPointOutput,
+    const MLAS_REQUANT_PARAM* RequantParam,
     size_t Batch,
     size_t ImageSize,
     size_t Stride,

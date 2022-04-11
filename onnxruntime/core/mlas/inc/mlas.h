@@ -1130,6 +1130,22 @@ MlasQuantizeLinear(
     OutputType ZeroPoint
     );
 
+#if defined(MLAS_TARGET_ARM_ANY)
+struct MLAS_REQUANT_PARAM {
+    const const int32_t* Multiplier;
+    const const int32_t* PreShift;
+    const const int32_t* PostShift;
+    size_t Size;
+    int32_t ZeroPoint;
+};
+#else
+struct MLAS_REQUANT_PARAM {
+    const float* Scale;
+    size_t Size;
+    int32_t ZeroPoint;
+};
+#endif
+
 /**
  * @brief Requantize a block of the intermediate buffer to the output buffer,
  *        optionally adding the supplied bias
@@ -1158,16 +1174,11 @@ MlasRequantizeOutput(
     OutputType* Output,
     size_t OutputLeadingDimension,
     const int32_t* Bias,
-    const float* Scale,
-    bool PerColumnScale,
-    OutputType ZeroPoint,
+    const MLAS_REQUANT_PARAM* RequantParam,
     size_t StartM,
     size_t StartN,
     size_t CountM,
-    size_t CountN,
-    const int32_t* Multiplier = nullptr,
-    const int32_t* PreShift = nullptr,
-    const int32_t* PostShiftm = nullptr
+    size_t CountN
     );
 
 class MLAS_QGEMM_REQUANT_OUTPUT_PROCESSOR : public MLAS_QGEMM_OUTPUT_PROCESSOR
@@ -1177,16 +1188,12 @@ class MLAS_QGEMM_REQUANT_OUTPUT_PROCESSOR : public MLAS_QGEMM_OUTPUT_PROCESSOR
         void* Output,
         size_t OutputLeadingDimension,
         const int32_t* Bias,
-        const float* Scale,
-        bool PerColumnScale,
-        int32_t ZeroPoint,
+        MLAS_REQUANT_PARAM* RequantParam;
         bool OutputIsSigned)
         : Output_(Output),
           OutputLeadingDimension_(OutputLeadingDimension),
           Bias_(Bias),
-          Scale_(Scale),
-          PerColumnScale_(PerColumnScale),
-          ZeroPoint_(ZeroPoint),
+          RequantParam_(RequantParam),
           OutputIsSigned_(OutputIsSigned)
     {
     }
@@ -1200,12 +1207,10 @@ class MLAS_QGEMM_REQUANT_OUTPUT_PROCESSOR : public MLAS_QGEMM_OUTPUT_PROCESSOR
     {
         if(OutputIsSigned_){
             MlasRequantizeOutput(C, ldc, reinterpret_cast<int8_t*>(Output_), OutputLeadingDimension_,
-                                 Bias_, Scale_, PerColumnScale_, static_cast<int8_t>(ZeroPoint_),
-                                 StartM, StartN, CountM, CountN);
+                                 Bias_, RequantParam_, StartM, StartN, CountM, CountN);
         } else {
             MlasRequantizeOutput(C, ldc, reinterpret_cast<uint8_t*>(Output_), OutputLeadingDimension_,
-                                 Bias_, Scale_, PerColumnScale_, static_cast<uint8_t>(ZeroPoint_),
-                                 StartM, StartN, CountM, CountN);
+                                 Bias_, RequantParam_, StartM, StartN, CountM, CountN);
         }
     }
 
@@ -1214,9 +1219,7 @@ class MLAS_QGEMM_REQUANT_OUTPUT_PROCESSOR : public MLAS_QGEMM_OUTPUT_PROCESSOR
     void* Output_;
     size_t OutputLeadingDimension_;
     const int32_t* Bias_;
-    const float* Scale_;
-    bool PerColumnScale_;
-    int32_t ZeroPoint_;
+    MLAS_REQUANT_PARAM* RequantParam_;
     bool OutputIsSigned_;
 };
 
