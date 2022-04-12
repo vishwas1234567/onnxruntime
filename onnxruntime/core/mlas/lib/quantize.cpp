@@ -396,16 +396,16 @@ MlasRequantizeOutput(
     OutputType* Output,
     size_t OutputLeadingDimension,
     const MLAS_REQUANT_PARAM* RequantParam,
-    OutputType ZeroPoint,
     size_t StartM,
     size_t StartN,
     size_t CountM,
-    size_t CountN,
-    const int32_t* Multiplier,
-    const int32_t* PreShift,
-    const int32_t* PostShift
+    size_t CountN
     )
 {
+    const float* Scale = RequantParam->Scale;
+    bool PerColumnScale = RequantParam->Size > 1;
+    OutputType ZeroPoint = static_cast<OutputType>(RequantParam->ZeroPoint);
+
     const __m128 PerMatrixScaleVector = PerColumnScale ? _mm_setzero_ps() : _mm_load1_ps(Scale);
     const __m128 MinimumValueVector = _mm_set1_ps(float(std::numeric_limits<OutputType>::lowest() - ZeroPoint));
     const __m128 MaximumValueVector = _mm_set1_ps(float(std::numeric_limits<OutputType>::max() - ZeroPoint));
@@ -638,242 +638,18 @@ MlasRequantizeOutput(
     OutputType* Output,
     size_t OutputLeadingDimension,
     const MLAS_REQUANT_PARAM* RequantParam,
-    OutputType ZeroPoint,
     size_t StartM,
     size_t StartN,
     size_t CountM,
     size_t CountN,
-    const int32_t* Multiplier,
-    const int32_t* PreShift,
-    const int32_t* PostShift
     )
 {
-    if (Multiplier == nullptr) {
-    const float32x4_t PerMatrixScaleVector = PerColumnScale ? vdupq_n_f32(0) : vld1q_dup_f32(Scale);
-    const int16x8_t ZeroPointVector = vdupq_n_s16(ZeroPoint);
+    bool PerColumnScale = RequantParam->Size > 1;
+    const int32_t* Multiplier = RequantParam->Multiplier;
+    const int32_t* PreShift = RequantParam->PreShift;
+    const int32_t* PostShift = RequantParam->PostShift;
+    OutputType ZeroPoint = static_cast<OutputType>(RequantParam->ZeroPoint);
 
-    if (nullptr != Bias) {
-        Bias += StartN;
-    }
-    if (PerColumnScale) {
-        Scale += StartN;
-    }
-
-    Input += StartM * InputLeadingDimension + StartN;
-    Output += StartM * OutputLeadingDimension + StartN;
-
-    //
-    // Step through each row of the output matrix.
-    //
-
-    while (CountM-- > 0) {
-
-        const int32_t* bias = Bias;
-        const float* scale = PerColumnScale ? Scale : nullptr;
-        size_t n = CountN;
-
-        auto* RowInput = Input;
-        auto* RowOutput = Output;
-
-        //
-        // Process 16 columns of the matrices at a time.
-        //
-
-        while (n >= 16) {
-
-            //
-            // Load the input data and optionally add the per-column bias.
-            //
-
-            int32x4x4_t IntegerVector;
-
-            IntegerVector.val[0] = vld1q_s32(&RowInput[0]);
-            IntegerVector.val[1] = vld1q_s32(&RowInput[4]);
-            IntegerVector.val[2] = vld1q_s32(&RowInput[8]);
-            IntegerVector.val[3] = vld1q_s32(&RowInput[12]);
-            RowInput += 16;
-
-            if (bias != nullptr) {
-                IntegerVector.val[0] = vaddq_s32(IntegerVector.val[0], vld1q_s32(&bias[0]));
-                IntegerVector.val[1] = vaddq_s32(IntegerVector.val[1], vld1q_s32(&bias[4]));
-                IntegerVector.val[2] = vaddq_s32(IntegerVector.val[2], vld1q_s32(&bias[8]));
-                IntegerVector.val[3] = vaddq_s32(IntegerVector.val[3], vld1q_s32(&bias[12]));
-                bias += 16;
-            }
-
-            //
-            // Convert to integer values to float and apply the per-tensor or
-            // per-column scaling.
-            //
-
-            float32x4x4_t FloatVector;
-
-            FloatVector.val[0] = vcvtq_f32_s32(IntegerVector.val[0]);
-            FloatVector.val[1] = vcvtq_f32_s32(IntegerVector.val[1]);
-            FloatVector.val[2] = vcvtq_f32_s32(IntegerVector.val[2]);
-            FloatVector.val[3] = vcvtq_f32_s32(IntegerVector.val[3]);
-
-            if (scale != nullptr) {
-
-                float32x4x4_t PerColumnScaleVector;
-
-                PerColumnScaleVector.val[0] = vld1q_f32(&scale[0]);
-                PerColumnScaleVector.val[1] = vld1q_f32(&scale[4]);
-                PerColumnScaleVector.val[2] = vld1q_f32(&scale[8]);
-                PerColumnScaleVector.val[3] = vld1q_f32(&scale[12]);
-                scale += 16;
-
-                FloatVector.val[0] = vmulq_f32(FloatVector.val[0], PerColumnScaleVector.val[0]);
-                FloatVector.val[1] = vmulq_f32(FloatVector.val[1], PerColumnScaleVector.val[1]);
-                FloatVector.val[2] = vmulq_f32(FloatVector.val[2], PerColumnScaleVector.val[2]);
-                FloatVector.val[3] = vmulq_f32(FloatVector.val[3], PerColumnScaleVector.val[3]);
-
-            } else {
-
-                FloatVector.val[0] = vmulq_f32(FloatVector.val[0], PerMatrixScaleVector);
-                FloatVector.val[1] = vmulq_f32(FloatVector.val[1], PerMatrixScaleVector);
-                FloatVector.val[2] = vmulq_f32(FloatVector.val[2], PerMatrixScaleVector);
-                FloatVector.val[3] = vmulq_f32(FloatVector.val[3], PerMatrixScaleVector);
-            }
-
-            //
-            // Convert the float values to integer using "round to nearest even".
-            // Results are saturated to the range of int32_t.
-            //
-
-            IntegerVector.val[0] = vcvtnq_s32_f32(FloatVector.val[0]);
-            IntegerVector.val[1] = vcvtnq_s32_f32(FloatVector.val[1]);
-            IntegerVector.val[2] = vcvtnq_s32_f32(FloatVector.val[2]);
-            IntegerVector.val[3] = vcvtnq_s32_f32(FloatVector.val[3]);
-
-            //
-            // Pack the integers with saturation to 16-bit values and shift by
-            // the zero point, then pack the integers again to bytes.
-            //
-
-            int16x8x2_t WordVector;
-
-            WordVector.val[0] = vqmovn_high_s32(vqmovn_s32(IntegerVector.val[0]), IntegerVector.val[1]);
-            WordVector.val[1] = vqmovn_high_s32(vqmovn_s32(IntegerVector.val[2]), IntegerVector.val[3]);
-
-            WordVector.val[0] = vqaddq_s16(WordVector.val[0], ZeroPointVector);
-            WordVector.val[1] = vqaddq_s16(WordVector.val[1], ZeroPointVector);
-
-            if (std::is_signed<OutputType>::value) {
-                vst1q_s8(reinterpret_cast<int8_t*>(RowOutput),
-                         vqmovn_high_s16(vqmovn_s16(WordVector.val[0]), WordVector.val[1]));
-            } else {
-                vst1q_u8(reinterpret_cast<uint8_t*>(RowOutput),
-                         vqmovun_high_s16(vqmovun_s16(WordVector.val[0]), WordVector.val[1]));
-            }
-            RowOutput += 16;
-
-            n -= 16;
-        }
-
-        //
-        // Process the remaining columns of the matrices.
-        //
-
-        while (n > 0) {
-
-            //
-            // Load the input data and optionally add the per-column bias.
-            //
-
-            int32x4_t IntegerVector;
-
-            if (n >= 4) {
-
-                IntegerVector = vld1q_s32(&RowInput[0]);
-                RowInput += 4;
-
-                if (bias != nullptr) {
-                    IntegerVector = vaddq_s32(IntegerVector, vld1q_s32(&bias[0]));
-                    bias += 4;
-                }
-
-            } else {
-
-                IntegerVector = vld1q_dup_s32(RowInput);
-                RowInput += 1;
-
-                if (bias != nullptr) {
-                    IntegerVector = vaddq_s32(IntegerVector, vld1q_dup_s32(bias));
-                    bias += 1;
-                }
-            }
-
-            //
-            // Convert to integer values to float and apply the per-tensor or
-            // per-column scaling.
-            //
-
-            float32x4_t FloatVector = vcvtq_f32_s32(IntegerVector);
-            float32x4_t ScaleVector;
-
-            if (scale != nullptr) {
-
-                if (n >= 4) {
-                    ScaleVector = vld1q_f32(scale);
-                    scale += 4;
-                } else {
-                    ScaleVector = vld1q_dup_f32(scale);
-                    scale += 1;
-                }
-
-            } else {
-                ScaleVector = PerMatrixScaleVector;
-            }
-
-            FloatVector = vmulq_f32(FloatVector, ScaleVector);
-
-            //
-            // Convert the float values to integer using "round to nearest even".
-            // Results are saturated to the range of int32_t.
-            //
-
-            IntegerVector = vcvtnq_s32_f32(FloatVector);
-
-            //
-            // Pack the integers with saturation to 16-bit values and shift by
-            // the zero point, then pack the integers again to unsigned bytes.
-            //
-
-            int16x8_t WordVector = vcombine_s16(vqmovn_s32(IntegerVector), vdup_n_s16(0));
-            WordVector = vqaddq_s16(WordVector, ZeroPointVector);
-
-            uint8x16_t ByteVector;
-
-            if (std::is_signed<OutputType>::value) {
-                ByteVector = vcombine_u8(vreinterpret_u8_s8(vqmovn_s16(WordVector)), vdup_n_u8(0));
-            } else {
-                ByteVector = vcombine_u8(vqmovun_s16(WordVector), vdup_n_u8(0));
-            }
-
-            if (n >= 4) {
-
-                vst1q_lane_u32(reinterpret_cast<uint32_t*>(RowOutput),
-                               vreinterpretq_u32_u8(ByteVector), 0);
-                RowOutput += 4;
-
-                n -= 4;
-
-            } else {
-
-                vst1q_lane_u8(reinterpret_cast<uint8_t*>(RowOutput), ByteVector, 0);
-                RowOutput += 1;
-
-                n -= 1;
-            }
-        }
-
-        // Next Row
-        Input += InputLeadingDimension;
-        Output += OutputLeadingDimension;
-    }
-    } 
-    else {
     const int32x4_t PerTensorMultiplierVector = PerColumnScale ? vdupq_n_s32(0) : vld1q_dup_s32(Multiplier);
     const int32x4_t PerTensorPreShiftVector = PerColumnScale ? vdupq_n_s32(0) : vld1q_dup_s32(PreShift);
     const int32x4_t PerTensorPostShiftVector = PerColumnScale ? vdupq_n_s32(0) : vld1q_dup_s32(PostShift);
@@ -1121,7 +897,6 @@ MlasRequantizeOutput(
         Input += InputLeadingDimension;
         Output += OutputLeadingDimension;
     }
-    }
 }
 
 #else
@@ -1135,16 +910,11 @@ MlasRequantizeOutput(
     OutputType* Output,
     size_t OutputLeadingDimension,
     const int32_t* Bias,
-    const float* Scale,
-    bool PerColumnScale,
-    OutputType ZeroPoint,
+    const MLAS_REQUANT_PARAM* RequantParam,
     size_t StartM,
     size_t StartN,
     size_t CountM,
-    size_t CountN,
-    const int32_t* Multiplier,
-    const int32_t* PreShift,
-    const int32_t* PostShift
+    size_t CountN
     )
 {
     const float PerMatrixScaleValue = PerColumnScale ? 0.0f : *Scale;
