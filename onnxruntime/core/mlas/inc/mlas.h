@@ -1130,21 +1130,28 @@ MlasQuantizeLinear(
     OutputType ZeroPoint
     );
 
-#if defined(MLAS_TARGET_ARM_ANY)
-struct MLAS_REQUANT_PARAM {
-    const const int32_t* Multiplier;
-    const const int32_t* PreShift;
-    const const int32_t* PostShift;
-    size_t Size;
-    int32_t ZeroPoint;
+enum MLAS_REQUANT_ROUND_KIND {
+    MlasRequantRoundNearestEven,
+    MlasRequantRoundNearestUp,
 };
-#else
+
 struct MLAS_REQUANT_PARAM {
-    const float* Scale;
-    size_t Size;
-    int32_t ZeroPoint;
+    MLAS_REQUANT_ROUND_KIND RequantRoundKind;
+    union {
+        struct {
+            const float* Scale;
+            size_t Size;
+            int32_t ZeroPoint;
+        } RoundNearestEven;
+        struct {
+            const const int32_t* Multiplier;
+            const const int32_t* PreShift;
+            const const int32_t* PostShift;
+            size_t Size;
+            int32_t ZeroPoint;
+        } RoundNearestUp;
+    } Params;
 };
-#endif
 
 /**
  * @brief Requantize a block of the intermediate buffer to the output buffer,
@@ -1156,9 +1163,7 @@ struct MLAS_REQUANT_PARAM {
  * @param OutputLeadingDimension    Output matrix leading dimension
  * @param Bias                      Optional bias vector, to be added
                                     to the input before quantization
- * @param Scale                     Quantization scale
- * @param PerColumnScale            true if scale is per-column
- * @param ZeroPoint                 quantization zero point value
+ * @param MLAS_REQUANT_PARAM  Requantization parameters
  * @param StartM
  * @param StartN
  * @param CountM
