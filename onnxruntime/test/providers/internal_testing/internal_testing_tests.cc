@@ -13,6 +13,7 @@
 #include "test/util/include/asserts.h"
 #include "test/util/include/inference_session_wrapper.h"
 #include "test/util/include/test_utils.h"
+#include "test/util/include/default_providers.h"
 
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
@@ -338,6 +339,19 @@ TEST(InternalTestingEP, TestOrtModelWithCompileFailure) {
     ASSERT_STATUS_NOT_OK(session.Initialize());
   }
 }
+
+TEST(TempTest, LoadModel) {
+  Status status;
+  auto model_uri = ORT_TSTR("C:/Users/scmckay/Downloads/SuperRes_BuildDemo_Models/Models/srgan_generator.onnx");
+
+  SessionOptions so;
+  so.session_logid = "TempTest.LoadModel";
+  InferenceSession session_object{so, GetEnvironment()};
+  ASSERT_STATUS_OK(session_object.RegisterExecutionProvider(DefaultNnapiExecutionProvider()));
+  ASSERT_STATUS_OK(session_object.Load(model_uri));
+  ASSERT_STATUS_OK(session_object.Initialize());  // optimizers run during initialization
+}
+
 }  // namespace test
 }  // namespace onnxruntime
 

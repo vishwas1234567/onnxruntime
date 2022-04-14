@@ -118,7 +118,7 @@ static Status AddSqueezeOp(ModelBuilder& model_builder,
   if (axes.empty()) {  // Squeeze all
     for (size_t i = 0; i < input_dims; i++) {
       if (input_shape[i] == 1)
-        axes.push_back(i);
+        axes.push_back(static_cast<int32_t>(i));
     }
   }
 
@@ -725,7 +725,7 @@ Status TransposeOpBuilder::AddToModelBuilderImpl(ModelBuilder& model_builder, co
   const auto& output = node_unit.Outputs()[0].node_arg.Name();
   NodeAttrHelper helper(node_unit);
   std::vector<int32_t> perm = helper.Get("perm", std::vector<int32_t>());
-  auto input_dims = shaper[input].size();
+  auto input_dims = static_cast<int32_t>(shaper[input].size());
   if (perm.empty()) {
     for (int32_t i = input_dims - 1; i >= 0; i--)
       perm.push_back(i);
@@ -1944,7 +1944,7 @@ Status ConcatOpBuilder::AddToModelBuilderImpl(ModelBuilder& model_builder, const
         y_scale, y_zero_point));
   }
 
-  int rank = shaper[input0].size();
+  int rank = static_cast<int32_t>(shaper[input0].size());
   int32_t axis = static_cast<int32_t>(HandleNegativeAxis(helper.Get("axis", 1), rank));
 
   ADD_SCALAR_OPERAND(model_builder, input_indices, axis);

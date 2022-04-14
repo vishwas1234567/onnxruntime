@@ -16,10 +16,10 @@
 #include "core/providers/shared/node_unit/node_unit.h"
 #include "core/session/onnxruntime_cxx_api.h"
 
-#ifdef __ANDROID__
+// #ifdef __ANDROID__
 #include "core/providers/nnapi/nnapi_builtin/builders/model_builder.h"
 #include "core/providers/nnapi/nnapi_builtin/model.h"
-#endif
+// #endif
 
 namespace onnxruntime {
 
@@ -206,7 +206,7 @@ DataLayout NnapiExecutionProvider::GetPreferredLayout() const {
   return nnapi_flags_ & NNAPI_FLAG_USE_NCHW ? DataLayout::NCHW : DataLayout::NHWC;
 }
 
-#ifdef __ANDROID__
+//#ifdef __ANDROID__
 static Status GetOutputBuffer(Ort::CustomOpApi& ort,
                               OrtKernelContext* context,
                               const nnapi::Model& model,
@@ -446,22 +446,22 @@ common::Status NnapiExecutionProvider::Compile(const std::vector<FusedNodeAndGra
   }
   return Status::OK();
 }
-#else
-common::Status NnapiExecutionProvider::Compile(const std::vector<FusedNodeAndGraph>& fused_nodes_and_graphs,
-                                               std::vector<NodeComputeInfo>& node_compute_funcs) {
-  for (const auto& fused_node_and_graph : fused_nodes_and_graphs) {
-    ORT_UNUSED_PARAMETER(fused_node_and_graph);
-    NodeComputeInfo compute_info;
-    compute_info.create_state_func = [](ComputeContext* /*context*/, FunctionState* /*state*/) { return 0; };
-    compute_info.release_state_func = [](FunctionState /*state*/) {};
-    compute_info.compute_func = [](FunctionState /* state */, const OrtCustomOpApi* /* api */,
-                                   OrtKernelContext* /* context */) {
-      return ORT_MAKE_STATUS(ONNXRUNTIME, NOT_IMPLEMENTED, "Compute is not supported in this build.");
-    };
-    node_compute_funcs.push_back(compute_info);
-  }
-  return Status::OK();
-}
-#endif  // __ANDROID__
+//#else
+// common::Status NnapiExecutionProvider::Compile(const std::vector<FusedNodeAndGraph>& fused_nodes_and_graphs,
+//                                               std::vector<NodeComputeInfo>& node_compute_funcs) {
+//  for (const auto& fused_node_and_graph : fused_nodes_and_graphs) {
+//    ORT_UNUSED_PARAMETER(fused_node_and_graph);
+//    NodeComputeInfo compute_info;
+//    compute_info.create_state_func = [](ComputeContext* /*context*/, FunctionState* /*state*/) { return 0; };
+//    compute_info.release_state_func = [](FunctionState /*state*/) {};
+//    compute_info.compute_func = [](FunctionState /* state */, const OrtCustomOpApi* /* api */,
+//                                   OrtKernelContext* /* context */) {
+//      return ORT_MAKE_STATUS(ONNXRUNTIME, NOT_IMPLEMENTED, "Compute is not supported in this build.");
+//    };
+//    node_compute_funcs.push_back(compute_info);
+//  }
+//  return Status::OK();
+//}
+//#endif  // __ANDROID__
 
 }  // namespace onnxruntime
