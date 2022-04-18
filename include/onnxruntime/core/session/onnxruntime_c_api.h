@@ -348,7 +348,7 @@ typedef enum OrtCudnnConvAlgoSearch {
 */
 typedef struct OrtCUDAProviderOptions {
 #ifdef __cplusplus
-  OrtCUDAProviderOptions() : device_id{}, cudnn_conv_algo_search{OrtCudnnConvAlgoSearchExhaustive}, gpu_mem_limit{SIZE_MAX}, arena_extend_strategy{}, do_copy_in_default_stream{1}, has_user_compute_stream{}, user_compute_stream{}, default_memory_arena_cfg{} {}
+  OrtCUDAProviderOptions() : device_id{}, cudnn_conv_algo_search{OrtCudnnConvAlgoSearchExhaustive}, gpu_mem_limit{SIZE_MAX}, arena_extend_strategy{}, do_copy_in_default_stream{1}, has_user_compute_stream{}, user_compute_stream{}, default_memory_arena_cfg{}, alloc(nullptr), free(nullptr), empty_cache(nullptr) {}
 #endif
 
   /** \brief CUDA device Id
@@ -399,6 +399,24 @@ typedef struct OrtCUDAProviderOptions {
   */
   OrtArenaCfg* default_memory_arena_cfg;
 
+  /** \brief External function to allocate GPU memory. It replaces ORT's
+   * internal CUDA allocator in CUDA EP. The input argument is the number
+   * of bytes to allocate. The returned value is a pointer to the allocated
+   * memory.
+   */
+  void* (*alloc)(size_t);
+
+  /** \brief Free memory allocated by external allocator
+   * (the "alloc" above). Its input must be the returned
+   * value of "alloc".
+   */
+  void (*free)(void*);
+
+  /** \brief Clean cached GPU memory in external allocator. 
+   * This field can be NULL because not all allocators support
+   * caching.
+   */
+  void (*empty_cache)();
 } OrtCUDAProviderOptions;
 
 /** \brief ROCM Provider Options
