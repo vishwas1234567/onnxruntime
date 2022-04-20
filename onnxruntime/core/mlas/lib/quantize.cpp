@@ -912,40 +912,6 @@ MlasRequantizeOutputRoundNearestUp(
     }
 }
 
-template
-void
-MLASCALL
-MlasRequantizeOutputRoundNearestUp<int8_t>(
-    const int32_t* Input,
-    size_t InputLeadingDimension,
-    int8_t* Output,
-    size_t OutputLeadingDimension,
-    const int32_t* Bias,
-    const MLAS_REQUANT_RNDNU_PARAM* RequantParam,
-    size_t StartM,
-    size_t StartN,
-    size_t CountM,
-    size_t CountN
-    size_t CountN
-    );
-
-template
-void
-MLASCALL
-MlasRequantizeOutputRoundNearestUp<uint8_t>(
-    const int32_t* Input,
-    size_t InputLeadingDimension,
-    uint8_t* Output,
-    size_t OutputLeadingDimension,
-    const int32_t* Bias,
-    const MLAS_REQUANT_RNDNU_PARAM* RequantParam,
-    size_t StartM,
-    size_t StartN,
-    size_t CountM,
-    size_t CountN
-    size_t CountN
-    );
-
 template<typename OutputType>
 void
 MLASCALL
@@ -1232,6 +1198,19 @@ MlasRequantizeOutput(
     size_t CountN
     )
 {
+    MlasRequantRoundKind RequantRoundKind = RequantParam->RequantRoundKind;
+    if(RequantRoundKind == MLAS_REQUANT_ROUND_KIND::MlasRequantRoundNearestUp) {
+#ifdef MLAS_NO_EXCEPTION
+        abort();
+#else
+        throw std::invalid_argument("Requantization rounding to nearest and tie to up is only supported on ARM64.");
+#endif
+    }
+
+    const float* Scale = RequantParam->RoundNearestEven.Scale;
+    bool PerColumnScale = RequantParam->RoundNearestEven.Size > 1;
+    OutputType ZeroPoint = static_cast<OutputType>(RequantParam->RoundNearestEven.ZeroPoint);
+
     const float PerMatrixScaleValue = PerColumnScale ? 0.0f : *Scale;
     const float MinimumValue = float(std::numeric_limits<OutputType>::lowest() - ZeroPoint);
     const float MaximumValue = float(std::numeric_limits<OutputType>::max() - ZeroPoint);
