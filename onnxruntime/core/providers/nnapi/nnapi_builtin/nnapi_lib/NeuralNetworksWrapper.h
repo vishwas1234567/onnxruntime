@@ -50,6 +50,7 @@ enum class ExecutePreference {
   PREFER_SUSTAINED_SPEED = ANEURALNETWORKS_PREFER_SUSTAINED_SPEED
 };
 
+// handle clash with existing #define on Windows
 #ifdef _MSC_VER
 #undef NO_ERROR
 #endif

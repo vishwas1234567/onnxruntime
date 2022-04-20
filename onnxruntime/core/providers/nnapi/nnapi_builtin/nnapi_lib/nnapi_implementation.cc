@@ -11,11 +11,9 @@ limitations under the License.
 ==============================================================================*/
 #include "nnapi_implementation.h"
 
-#if !defined(__ANDROID__) && !defined(__linux__)
-#define USE_STUB 1
-#endif
-
-#if !defined(USE_STUB)
+// use real implementation on Android. 
+// use stub on other platforms to allow unit testing model building. 
+#if defined(__ANDROID__)
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -332,6 +330,9 @@ const NnApi LoadNnApi() {
 }  // namespace
 
 #else
+//
+// Stub out the API with default implementations that do nothing.
+// 
 #include "core/providers/nnapi/nnapi_builtin/builders/helper.h"
 #include "core/providers/nnapi/nnapi_builtin/nnapi_lib/NeuralNetworksTypes.h"
 
@@ -493,7 +494,7 @@ const NnApi LoadNnApi() {
 
   return nnapi;
 }
-#endif  // !defined(USE_STUB)
+#endif  // defined(__ANDROID__)
 
 const NnApi* NnApiImplementation() {
   static const NnApi nnapi = LoadNnApi();

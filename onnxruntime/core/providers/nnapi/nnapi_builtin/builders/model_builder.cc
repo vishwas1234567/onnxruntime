@@ -654,6 +654,8 @@ int32_t ModelBuilder::FindActivation(const NodeUnit& node_unit) {
     if (node_unit_map_.find(&dst_node) == node_unit_map_.cend()) {
       // TODO: Should GetNodeUnit support returning nullptr for 'not found'?
       // downstream node is not in this node unit.
+	  
+	  // FIXME: Merge in Ed's PR first
       return ANEURALNETWORKS_FUSED_NONE;
     }
 

@@ -249,7 +249,7 @@ Status Shaper::ReshapeImpl(const std::string& input_name,
     ORT_RETURN_IF_NOT(dim_i != 0, "NNAPI does not support 0 reshape dimension");
     if (dim_i == -1) {
       ORT_RETURN_IF_NOT(unk_dim_idx == -1, "Only one input dimension of Attr(shape) can be unknown!");
-      unk_dim_idx = gsl::narrow<int>(i);
+      unk_dim_idx = static_cast<int>(i);
     } else {
       capacity *= dim_i;
       output_dimen[i] = static_cast<uint32_t>(dim_i);
@@ -260,7 +260,7 @@ Status Shaper::ReshapeImpl(const std::string& input_name,
     if (input_size == 0)
       output_dimen[unk_dim_idx] = 0;
     else
-      output_dimen[unk_dim_idx] = gsl::narrow<uint32_t>(input_size / capacity);
+      output_dimen[unk_dim_idx] = static_cast<uint32_t>(input_size / capacity);
 
     capacity *= output_dimen[unk_dim_idx];
   }
@@ -372,7 +372,7 @@ Status Shaper::SqueezeImpl(const std::string& input_name,
                            const std::vector<int32_t>& axes,
                            const std::string& output_name) {
   const Shape& input_dimen = shape_map_.at(input_name);
-  int32_t input_size = gsl::narrow<int32_t>(input_dimen.size());
+  int32_t input_size = static_cast<int32_t>(input_dimen.size());
   std::unordered_set<int32_t> axes_to_be_squeezed;
 
   // If the Op is squeezing all by not specifying axes, the axes is pre-populate

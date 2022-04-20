@@ -104,7 +104,7 @@ Status Model::PrepareForExecution(std::unique_ptr<Execution>& execution) {
 }
 
 int32_t Model::GetNNAPIFeatureLevel() const {
-  return nnapi_ ? static_cast<uint32_t>(nnapi_->nnapi_runtime_feature_level) : 0;
+  return nnapi_ ? static_cast<int32_t>(nnapi_->nnapi_runtime_feature_level) : 0;
 }
 
 #pragma region Model::NNMemory
