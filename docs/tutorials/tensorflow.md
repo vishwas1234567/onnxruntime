@@ -18,7 +18,7 @@ ONNX Runtime can accelerate inferencing times for TensorFlow, TFLite, and Keras 
 {: .no_toc }
 These examples use the [TensorFlow-ONNX converter](https://github.com/onnx/tensorflow-onnx), which supports TensorFlow 1, 2, Keras, and TFLite model formats.
 
-* [TensorFlow: Object detection (efficentdet)](https://github.com/onnx/tensorflow-onnx/blob/master/tutorials/efficientdet.ipynb)
+* [TensorFlow: Object detection (efficentnet)](https://github.com/onnx/tensorflow-onnx/blob/master/tutorials/efficientdet.ipynb)
 * [TensorFlow: Object detection (SSD Mobilenet)](https://github.com/onnx/tensorflow-onnx/blob/master/tutorials/ConvertingSSDMobilenetToONNX.ipynb)
 * [TensorFlow: Image classification (efficientnet-edge)](https://github.com/onnx/tensorflow-onnx/blob/master/tutorials/efficientnet-edge.ipynb)
 * [TensorFlow: Image classification (efficientnet-lite)](https://github.com/onnx/tensorflow-onnx/blob/master/tutorials/efficientnet-lite.ipynb)
