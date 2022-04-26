@@ -7,8 +7,10 @@
 #include <torch/extension.h>
 #include <torch/csrc/jit/passes/pass_manager.h>
 #include <torch/csrc/jit/passes/graph_fuser.h>
+#include "torch/csrc/jit/passes/shape_analysis.h"
 #include <torch/csrc/jit/runtime/custom_operator.h>
 #include "accelerator.h"
+#include "flags.h"
 #include "core/common/logging/logging.h"
 
 namespace onnxruntime {
@@ -17,14 +19,33 @@ void register_ort_as_torch_jit_executor() {
   // Pytorch's JIT symbol to be execute by ORT.
   const auto accelerator_symbol =
       torch::jit::Symbol::fromQualString("ort::graph");
-
   // First, register a pass that will coalesce supported consecutive operators
   // into a single symbol (it contains a subgraph). Encountering an unsupported
   // operator will result two seperated symbols (i.e., two independent sub-graphs).
   //
   // TODO: Allow single-op fusion in Pytorch so ORT can receive single-op sub-graph.
   torch::jit::RegisterPass pass([accelerator_symbol](std::shared_ptr<torch::jit::Graph>& g) {
-    CustomFuseGraph(g, Accelerator::Supported, accelerator_symbol);
+    if (!DynamicSettings::GetInstance().GetOnnxFusionFlag()) {
+      if (DumpOnnxFusion()) {
+        std::cout << "[No fusion]\n" << *g;
+      }
+      return;
+    }
+
+    if (DumpOnnxFusion()) {
+      std::cout << "[Before fusion]\n" << *g;
+    }
+
+    std::shared_ptr<torch::jit::Graph> new_subgraph_with_shapes(g->copyUnique().release());
+    torch::jit::PropagateInputShapes(new_subgraph_with_shapes);
+    //std::cout << "[Baseline full graph with shape] " << *new_subgraph_with_shapes << std::endl;
+
+    MyFuseGraph(g, Accelerator::Supported, accelerator_symbol);
+    //CustomFuseGraph(g, Accelerator::Supported, accelerator_symbol);
+    //std::cout << "[After my fusion]\n" << *g << std::endl;
+    if (DumpOnnxFusion()) {
+      std::cout << "[After fusion]\n" << *g;
+    }
   });
 
   // Define a function to generate actual computation code for a

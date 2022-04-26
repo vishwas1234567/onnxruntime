@@ -199,6 +199,9 @@ struct CUDA_Provider : Provider {
     info.user_compute_stream = params->user_compute_stream;
     info.default_memory_arena_cfg = params->default_memory_arena_cfg;
     info.cudnn_conv_use_max_workspace = params->cudnn_conv_use_max_workspace != 0;
+    info.external_allocator_info.type_safe_alloc = params->alloc;
+    info.external_allocator_info.type_safe_free = params->free;
+    info.external_allocator_info.type_safe_empty_cache = params->empty_cache;
 
     return std::make_shared<CUDAProviderFactory>(info);
   }

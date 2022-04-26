@@ -44,13 +44,17 @@ endif()
 # Support ORT as a backend in Pytorch's LazyTensor.
 if (onnxruntime_ENABLE_LAZY_TENSOR)
   list(APPEND CMAKE_PREFIX_PATH ${onnxruntime_PREBUILT_PYTORCH_PATH})
-  # This line may change ${CUDA_NVCC_FLAGS} and ${CMAKE_CUDA_FLAGS}.
-  # If Torch is built from source, ONNX_NAMESPACE=onnx must be set.
-  # Otherwise, pytorch/cmake/public/cuda.cmake can define
-  # ONNX_NAMESPACE=onnx_c2 and cause repeated definitions when building
-  # ORT's CUDA EP.
-  # TODO: isolate eager mode and
+  # This line may change ${CUDA_NVCC_FLAGS} and ${CMAKE_CUDA_FLAGS},
+  # if Pytorch is built from source.
+  # For example, pytorch/cmake/public/cuda.cmake and
+  # pytorch/torch/share/cmake/Caffe2/public/cuda.cmake both defines
+  # ONNX_NAMESPACE for both CUDA_NVCC_FLAGS and CMAKE_CUDA_FLAGS.
+  # Later, this ONNX_NAMESPACE may conflicts with ONNX_NAMESPACE set by ORT.
   find_package(Torch REQUIRED)
+  # Let's remove ONNX_NAMESPACE from Torch.
+  # ORT's cmake file will add it later.
+  list(FILTER CUDA_NVCC_FLAGS EXCLUDE REGEX "-DONNX_NAMESPACE=.+")
+  string(REGEX REPLACE "-DONNX_NAMESPACE=.+ " " " CMAKE_CUDA_FLAGS ${CMAKE_CUDA_FLAGS})
   # TODO: check if we can remove this.
   find_library(TORCH_PYTHON_LIBRARY torch_python PATHS "${TORCH_INSTALL_PREFIX}/lib")
 

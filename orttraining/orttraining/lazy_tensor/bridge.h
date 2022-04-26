@@ -26,5 +26,6 @@ OrtValue CreateOrtTensorValue(const at::Tensor& tensor);
 c10::IValue CreateC10IvalueTensor(OrtValue value);
 // Map Pytorch scalar to tensor with empty shape in ORT.
 OrtValue CreateOrtScalarValue(const at::Scalar& scalar);
+c10::IValue CreateC10IvalueScalar(OrtValue value);
 }  // namespace lazytensor
 }  // namespace onnxruntime

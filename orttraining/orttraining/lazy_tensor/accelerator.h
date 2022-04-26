@@ -22,7 +22,9 @@ struct CompiledObject {
 class Accelerator {
  public:
   Accelerator(const torch::jit::Node* node)
-      : subgraph_(node->g(torch::jit::attr::Subgraph)) { }
+      : subgraph_(node->g(torch::jit::attr::Subgraph)),
+        input_types_(subgraph_->inputs().size()),
+        output_types_(subgraph_->outputs().size()) { }
   // Execute a call to the torch::jit::Graph represented by "subgraph_".
   // This function could compile the graph and cache the result
   // for repeated uses.
@@ -31,6 +33,7 @@ class Accelerator {
   static bool Supported(const torch::jit::Node* node);
 
  private:
+  void ExampleRun(at::ArrayRef<c10::IValue> inputs);
   // This function calls "OrtRun" and "PytorchRun" to execute the graph
   // and compare their results. It may fail if their results are different
   // types or shapes.
@@ -48,6 +51,13 @@ class Accelerator {
   std::shared_ptr<torch::jit::Graph> subgraph_;
   // Previously compiled results.
   std::unordered_map<torch::jit::CompleteArgumentSpec, CompiledObject> cache_;
+  // Types of the inputs (typed to IValue) we got when compile the subgraph.
+  // Since the subgraph is compiled for these type, feeding
+  // inputs with different types may fail.
+  std::vector<c10::TypePtr> input_types_;
+  // Types of the outputs (typed to IValue) by running the subgraph with
+  // torch::jit::GraphExecutor.
+  std::vector<c10::TypePtr> output_types_;
 };
 }  // namespace lazytensor
 }  // namespace onnxruntime

@@ -28,6 +28,14 @@ double GetEnvironmentVariableDoubleOrDefault(const char* name, const double defa
   return std::atof(number);
 }
 
+std::string RunType() {
+  const auto run_type = std::getenv("ORT_LT_RUN_TYPE");
+  if (!run_type) {
+    return "ort";
+  }
+  return run_type;
+}
+
 bool DumpInputsOutputs() {
   return IsEnvironmentVariableOne("ORT_LT_DUMP_INPUTS_OUTPUTS");
 }
@@ -62,5 +70,10 @@ double RelativeTolerance() {
               ORT_LT_CHECK_TENSOR_CONTENT and ORT_LT_CHECK_BASELINE are set.");
   return GetEnvironmentVariableDoubleOrDefault("ORT_LT_RELATIVE_TOLERANCE", 1e-5);
 }
+
+bool DumpOnnxFusion() {
+  return IsEnvironmentVariableOne("ORT_LT_DUMP_ONNX_FUSION");
+}
+
 }  // namespace lazytensor
 }  // namespace onnxruntime

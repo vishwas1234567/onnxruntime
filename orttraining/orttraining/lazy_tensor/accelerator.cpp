@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 
 #include "accelerator.h"
+#include "cuda.h"
+#include "cuda_runtime.h"
 #include <iostream>
 #include <string>
 #include <torch/csrc/jit/passes/onnx.h>
@@ -10,6 +12,7 @@
 #include "core/common/logging/sinks/clog_sink.h"
 #include "core/framework/session_options.h"
 #include "core/session/environment.h"
+#include "core/providers/cuda/cuda_provider_options.h"
 #include "python/onnxruntime_pybind_state_common.h"
 #include "bridge.h"
 #include "debug.h"
@@ -46,9 +49,22 @@ bool Accelerator::Supported(const torch::jit::Node* node) {
     return false;
   }
 
+  //std::cout << "Judge op: " << ToString(*node) << std::endl;
   switch (node->kind()) {
     // TODO: add as many ops as possible.
+    //case aten::addmm:
+    case aten::tanh:
+    case aten::slice:
+    case aten::bmm:
+    case aten::gelu:
+    case aten::native_layer_norm:
+    case aten::native_dropout:
+    case aten::expand:
     case aten::add:
+    case aten::convolution:
+    case aten::reshape:
+    case aten::max_pool2d_with_indices:
+    case aten::_log_softmax:
     case aten::relu:
     case aten::mul:
     case aten::sub:
@@ -56,23 +72,53 @@ bool Accelerator::Supported(const torch::jit::Node* node) {
     case aten::gt:
     case aten::lt:
     case aten::eq:
-    case prim::Constant:
     case aten::sqrt:
     case aten::permute:
     case aten::mm:
     case aten::ne:
     case aten::abs:
     case aten::max:
-    case aten::min:
-      if (DumpAtenOpHistory()) {
-        std::cout << "Supported op: "
-                  << node->kind().toDisplayString() << std::endl;
-      }
+    case aten::min: {
       return true;
+      //bool supported = true;
+      //for (size_t i = 0; i < node->outputs().size(); ++i) {
+      //  c10::TypePtr type = node->outputs().at(i)->type();
+      //  if (type->isSubtypeOf(*c10::TensorType::get()) ||
+      //      type->isSubtypeOf(*c10::NumberType::get())) {
+      //    continue;
+      //  }
+      //  supported = false;
+      //  break;
+      //}
+      //for (size_t i = 0; i < node->inputs().size(); ++i) {
+      //  c10::TypePtr type = node->inputs().at(i)->type();
+      //  if (type->isSubtypeOf(*c10::TensorType::get()) ||
+      //      type->isSubtypeOf(*c10::NumberType::get())) {
+      //    continue;
+      //  }
+      //  supported = false;
+      //  break;
+      //}
+      //if (DumpAtenOpHistory()) {
+      //  if (supported) {
+      //    std::cout << "Supported op: "
+      //              << ToString(*node) << std::endl;
+      //  } else {
+      //    std::cout << "Unsupported op: "
+      //              << ToString(*node) << std::endl;
+      //  }
+      //}
+      //return supported;
+    }
     default: {
       if (DumpAtenOpHistory()) {
         std::cout << "Unsupported op: "
-                  << node->kind().toDisplayString() << std::endl;
+                  << ToString(*node) << std::endl;
+      }
+
+      if (node->kind() == prim::TensorExprGroup || node->kind() == prim::FallbackGraph) {
+        auto subgraph = node->g(torch::jit::attr::Subgraph);
+        std::cout << "Node's subgraph: " << *subgraph;
       }
       return false;
     }
@@ -154,12 +200,20 @@ void Accelerator::DebugRun(torch::jit::Stack& stack) {
 }
 
 void Accelerator::Run(torch::jit::Stack& stack) {
-  if (CheckBaseline()) {
+  const auto run_type = RunType();
+  if (run_type == "debug") {
     // Run both ORT and Pytorch to execute the subgraph
     // and compare their output types and shapes.
+    std::cout << "Debug run\n";
     DebugRun(stack);
-  } else {
+  } else if (run_type == "ort") {
+    std::cout << "ORT run\n";
     OrtRun(stack);
+  } else if (run_type == "pytorch") {
+    std::cout << "PTH run\n";
+    PytorchRun(stack);
+  } else {
+    ORT_THROW("Unknown run type: ", run_type);
   }
 }
 
@@ -205,7 +259,28 @@ static void PropagateArgTypes(
 //
 // TODO: Instead of using file, we should return
 // in-memory data structure from Python.
-static std::string ExportToOnnx(
+//static std::string ExportToOnnx(
+//    std::shared_ptr<torch::jit::Graph> graph,
+//    const at::ArrayRef<c10::IValue>& args) {
+//  // ONNX exporter modifies the graph in-place, so we
+//  // need to clone it to avoid interaction between
+//  // Pytorch's JIT mechanism and ONNX graph.
+//  std::shared_ptr<torch::jit::Graph> new_subgraph(graph->copyUnique().release());
+//  // Acquire GIL since Python is not multi-threading.
+//  pybind11::gil_scoped_acquire guard{};
+//  // Retrieve Python exporter function.
+//  pybind11::function export_to_onnx =
+//      pybind11::reinterpret_borrow<pybind11::function>(
+//          pybind11::module::import("onnxruntime.training.experimental.exporter").attr("_export"));
+//  // Fill types up. The sub-graphp from LazyTensor doesn't
+//  // contain input shapes.
+//  PropagateArgTypes(args, new_subgraph);
+//  // Execute Python function.
+//  auto result = export_to_onnx(new_subgraph, ::torch::onnx::OperatorExportTypes::ONNX);
+//  return result.cast<std::string>();
+//}
+
+static std::string ExportToOnnx1(
     std::shared_ptr<torch::jit::Graph> graph,
     const at::ArrayRef<c10::IValue>& args) {
   // ONNX exporter modifies the graph in-place, so we
@@ -217,7 +292,7 @@ static std::string ExportToOnnx(
   // Retrieve Python exporter function.
   pybind11::function export_to_onnx =
       pybind11::reinterpret_borrow<pybind11::function>(
-          pybind11::module::import("onnxruntime.training.experimental.exporter").attr("_export"));
+          pybind11::module::import("torch.onnx.utils").attr("_export_jit_graph_to_onnx_model_proto"));
   // Fill types up. The sub-graphp from LazyTensor doesn't
   // contain input shapes.
   PropagateArgTypes(args, new_subgraph);
@@ -262,38 +337,141 @@ static OrtDevice CheckAndGetTensorDevice(at::ArrayRef<c10::IValue>& values) {
   return CreateOrtDevice(unique_tensor_device);
 }
 
+void* CudaAllocDelegate(size_t nbytes) {
+  void* ptr = nullptr;
+  cudaError_t err = cudaMalloc(&ptr, nbytes);
+  std::cout << "CudaAllocDelegate" << std::endl;
+  if (err != cudaSuccess) {
+    throw std::runtime_error("CudaAlloc failed: " + std::string(cudaGetErrorString(err)));
+  }
+  return ptr;
+}
+
+void CudaFreeDelegate(void* ptr) {
+  std::cout << "CudaFreeDelegate" << std::endl;
+  cudaError_t err = cudaFree(ptr);
+  if (err != cudaSuccess) {
+    throw std::runtime_error("CudaFree failed: " + std::string(cudaGetErrorString(err)));
+  }
+}
+
+class UniqueCudaEp {
+public:
+  static UniqueCudaEp& GetInstance() {
+    static UniqueCudaEp instance;
+    return instance;
+  }
+  UniqueCudaEp() {
+    OrtCUDAProviderOptions provider_options{};
+    provider_options.do_copy_in_default_stream = true;
+    provider_options.alloc = CudaAllocDelegate;
+    provider_options.free = CudaFreeDelegate;
+    auto factory = onnxruntime::CreateExecutionProviderFactory_Cuda(&provider_options);
+    int device_count = 0;
+    cudaGetDeviceCount(&device_count);
+    for (int i = 0; i < device_count; ++i) {
+      provider_options.device_id = i;
+      cuda_eps_.emplace_back(std::move(factory->CreateProvider()));
+    }
+  }
+  std::shared_ptr<IExecutionProvider> GetEp(const int device_id) {
+    std::cout << "[UniqueCudaEp::GetEp]" << std::endl;
+    return cuda_eps_.at(device_id);
+  }
+private:
+  size_t count_;
+  std::vector<std::shared_ptr<IExecutionProvider>> cuda_eps_;
+};
+
 // Initialize empty session with ONNX model.
 static void InitializeSession(
-    const std::string& model_path, onnxruntime::InferenceSession& sess) {
+    const OrtDevice device,
+    const std::string& serialized_model,
+    onnxruntime::InferenceSession& sess) {
   // Add EPs.
+  std::cout << "[InitializeSession]\n";
 #ifdef USE_CUDA
   // When CUDA is enabled, some CUDA-only graph graph fusions are enabled.
   // If we don't add CUDA EP, ONNX Runtime may throw even when running MNIST.
-  OrtCUDAProviderOptions provider_options{};
-  provider_options.do_copy_in_default_stream = true;
-  auto factory = onnxruntime::CreateExecutionProviderFactory_Cuda(&provider_options);
-  ORT_THROW_IF_ERROR(sess.RegisterExecutionProvider(factory->CreateProvider()));
+  // Information needed to construct CUDA execution providers.
+  //onnxruntime::CUDAExecutionProviderExternalAllocatorInfo allocator_info{
+  //  cudaMalloc,
+  //  cudaFree,
+  //  nullptr};
+  //OrtCUDAProviderOptions provider_options{};
+  //provider_options.do_copy_in_default_stream = true;
+  //provider_options.alloc = CudaAllocDelegate;
+  //provider_options.free = CudaFreeDelegate;
+  //auto factory = onnxruntime::CreateExecutionProviderFactory_Cuda(&provider_options);
+  //ORT_THROW_IF_ERROR(sess.RegisterExecutionProvider(factory->CreateProvider()));
+  if (device.Type() == OrtDevice::GPU) {
+    ORT_THROW_IF_ERROR(sess.RegisterExecutionProvider(UniqueCudaEp::GetInstance().GetEp(device.Id())));
+  }
 #endif
-  ORT_THROW_IF_ERROR(sess.Load(model_path));
+  ORT_THROW_IF_ERROR(sess.Load(serialized_model.data(), serialized_model.size()));
   ORT_THROW_IF_ERROR(sess.Initialize());
+}
+
+void Accelerator::ExampleRun(at::ArrayRef<c10::IValue> inputs) {
+  torch::jit::Stack stack;
+  for (auto input : inputs) {
+    stack.push_back(input);
+  }
+
+  // Run graph and store input and output types.
+  // 1. Store input types.
+  // This check prevent some unexpected modification on input_types_.
+  ORT_ENFORCE(input_types_.size() == inputs.size());
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    c10::TypePtr type = inputs.at(i).type();
+    ORT_ENFORCE(type->isSubtypeOf(*c10::TensorType::get())||
+                type->isSubtypeOf(*c10::NumberType::get()),
+                "ONNX only support tensor, float, int, bool as graph's input types");
+    input_types_.at(i) = type;
+  }
+
+  // 2. Run graph.
+  torch::jit::GraphExecutor executor(subgraph_, "");
+  executor.run(stack);
+
+  // 3. Store output types.
+  at::ArrayRef<c10::IValue> outputs = torch::jit::last(stack, subgraph_->outputs().size());
+  ORT_ENFORCE(output_types_.size() == outputs.size());
+  for (size_t i = 0; i < outputs.size(); ++i) {
+    c10::TypePtr type = outputs.at(i).type();
+    ORT_ENFORCE(type->isSubtypeOf(*c10::TensorType::get())||
+                type->isSubtypeOf(*c10::NumberType::get()),
+                "ONNX only support tensor, float, int, bool as graph's output types. But got ",
+                type->str());
+    output_types_.at(i) = type;
+  }
 }
 
 CompiledObject Accelerator::Compile(
     torch::jit::CompleteArgumentSpec spec, at::ArrayRef<c10::IValue>& args) {
   CheckArgs(args);
+  DynamicSettings::GetInstance().SetOnnxFusionFlag(false);
+  std::cout << "Before example run. DynamicSettings::GetInstance().GetOnnxFusionFlag(): " << DynamicSettings::GetInstance().GetOnnxFusionFlag() << "\n";
+  ExampleRun(args);
+  DynamicSettings::GetInstance().SetOnnxFusionFlag(true);
+  std::cout << "After example run. DynamicSettings::GetInstance().GetOnnxFusionFlag(): " << DynamicSettings::GetInstance().GetOnnxFusionFlag() << "\n";
   // Storage of compilation.
   CompiledObject compiled;
-  // Assign an empty session.
+  // Create an empty session.
   compiled.sess = CreateSession();
   // Let's get the empty session and initialize it.
   onnxruntime::InferenceSession& sess = *compiled.sess;
   // Export subgraph_ to ONNX.
-  const std::string model_path = ExportToOnnx(subgraph_, args);
+  //const std::string model_path = ExportToOnnx(subgraph_, args);
+  const std::string serialized_model = ExportToOnnx1(subgraph_, args);
+  // Memory info for all tensors.
+  // Assume all inputs are on the same device.
+  OrtDevice shared_device = CheckAndGetTensorDevice(args);
   // Load ONNX model into session, register
   // EPs and finally initialize session.
-  InitializeSession(model_path, sess);
+  InitializeSession(shared_device, serialized_model, sess);
   // Clean model file.
-  ORT_ENFORCE(std::remove(model_path.c_str()) == 0, "Failed to remove temporary file: ", model_path);
+  //ORT_ENFORCE(std::remove(model_path.c_str()) == 0, "Failed to remove temporary file: ", model_path);
 
   onnxruntime::RunOptions run_options;
   std::vector<std::string> feed_names;
@@ -306,9 +484,6 @@ CompiledObject Accelerator::Compile(
     fetch_names.push_back(node_arg->Name());
   }
 
-  // Memory info for all tensors.
-  // Assume all inputs are on the same device.
-  OrtDevice shared_device = CheckAndGetTensorDevice(args);
   // Duplicate device info for putting output tensors on the shared device.
   std::vector<OrtDevice> fetches_device_info(fetch_names.size(), shared_device);
 
@@ -351,11 +526,22 @@ CompiledObject Accelerator::Compile(
 
     // Convert ORT output to Pytorch format.
     std::vector<c10::IValue> outputs;
-    for (auto value : fetches) {
-      if (value.IsTensor()) {
-        outputs.push_back(std::move(CreateC10IvalueTensor(value)));
+    for (size_t i = 0; i < fetches.size(); ++i) {
+      // Get the expected type of the i-th output.
+      const c10::TypePtr type = output_types_.at(i);
+      // Convert ORTValue to IValue.
+      if (type->isSubtypeOf(*c10::TensorType::get())) {
+        ORT_ENFORCE(fetches.at(i).IsTensor(), "Only ORT tensor can be translated to Pytorch tensor.");
+        auto value = CreateC10IvalueTensor(fetches.at(i));
+        auto expected_scalar_type = output_types_.at(i)->cast<c10::TensorType>()->scalarType().value();
+        outputs.push_back(value.toTensor().to(expected_scalar_type));
+      } else if (type->isSubtypeOf(*c10::NumberType::get())) {
+        // ORT represents scalar as tensor without shape.
+        ORT_ENFORCE(fetches.at(i).IsTensor(), "Only ORT tensor can be translated to Pytorch scalar.");
+        auto value = CreateC10IvalueScalar(fetches.at(i));
+        outputs.push_back(value);
       } else {
-        ORT_ENFORCE("ORT must return tensors.");
+        ORT_ENFORCE(false, "Unsupported c10::Type ", type->str());
       }
     }
 

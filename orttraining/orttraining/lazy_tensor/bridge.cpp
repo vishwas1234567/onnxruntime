@@ -157,7 +157,9 @@ c10::IValue CreateC10IvalueTensor(OrtValue value) {
       //  3. The new OrtValue's lifetime is the same as this lambda function.
       //  4. This lambda function is deleted by "new_tensor"'s dtor, which also ends
       //     the underlying tensor's life.
-      [value](void*) {},
+      [value, tensor](void* p) {
+        //std::cout << "ORT-LR fake deletes Pytorch tensor wrapping ORT tensor @ " << tensor << std::endl;
+      },
       options);
 
   return c10::IValue(new_tensor);
@@ -257,7 +259,6 @@ OrtValue CreateOrtScalarValue(const at::Scalar& scalar) {
 //     which are clearly not outputs of operators.
 //  2. LazyTensor only accepts at::Tensors. If we return at::Scalar, it throws.
 // We keep this function here for future reference.
-/*
 c10::IValue CreateC10IvalueScalar(OrtValue value) {
   onnxruntime::Tensor* tensor = value.GetMutable<onnxruntime::Tensor>();
   // Here we assume tensors with empty shape are at::Scalar's.
@@ -269,59 +270,72 @@ c10::IValue CreateC10IvalueScalar(OrtValue value) {
   // CPU and this code may need cuda.h dependency.
   // Since LazyTensor only supports at::Tensor, we wrap at::Scalar
   // by calling at::scalar_tensor (at::Tensor with empty shape on CPU).
-  auto options = torch::TensorOptions()
-                     .dtype(CreateC10ScalarType(tensor->DataType()->AsPrimitiveDataType()))
-                     .layout(torch::kStrided)
-                     .requires_grad(false);
-  at::Tensor new_value = at::empty({}, options);
+  //auto options = torch::TensorOptions()
+  //                   .dtype(CreateC10ScalarType(tensor->DataType()->AsPrimitiveDataType()))
+  //                   .layout(torch::kStrided)
+  //                   .requires_grad(false);
+  //at::Tensor new_value = at::empty({}, options);
+  //at::Scalar new_value;
+  c10::IValue new_value;
   ORT_ENFORCE(tensor->Location().device.Type() == OrtDevice::CPU);
   switch (static_cast<ONNX_NAMESPACE::TensorProto_DataType>(tensor->DataType()->AsPrimitiveDataType()->GetDataType())) {
     case onnxruntime::data_types_internal::ToTensorDataType<float>(): {
-      auto s = at::Scalar(*tensor->Data<float>());
-      new_value = at::scalar_tensor(s, at::kFloat);
+      //auto s = at::Scalar(*tensor->Data<float>());
+      //new_value = at::scalar_tensor(s, at::kFloat);
+      //new_value = at::Scalar(*tensor->Data<float>());
+      new_value = at::IValue(static_cast<double>(*tensor->Data<float>()));
       break;
     }
     case onnxruntime::data_types_internal::ToTensorDataType<double>(): {
-      auto s = at::Scalar(*tensor->Data<double>());
-      new_value = at::scalar_tensor(s, at::kDouble);
+      //auto s = at::Scalar(*tensor->Data<double>());
+      //new_value = at::scalar_tensor(s, at::kDouble);
+      //new_value = at::Scalar(*tensor->Data<double>());
+      new_value = at::IValue(*tensor->Data<double>());
       break;
     }
-    case onnxruntime::data_types_internal::ToTensorDataType<onnxruntime::MLFloat16>(): {
-      auto s = at::Scalar(*reinterpret_cast<const at::Half*>(tensor->DataRaw()));
-      new_value = at::scalar_tensor(s, at::kHalf);
-      break;
-    }
-    case onnxruntime::data_types_internal::ToTensorDataType<onnxruntime::BFloat16>(): {
-      auto s = at::Scalar(*reinterpret_cast<const at::BFloat16*>(tensor->DataRaw()));
-      new_value = at::scalar_tensor(s, at::kBFloat16);
-      break;
-    }
+    //case onnxruntime::data_types_internal::ToTensorDataType<onnxruntime::MLFloat16>(): {
+    //  //auto s = at::Scalar(*reinterpret_cast<const at::Half*>(tensor->DataRaw()));
+    //  //new_value = at::scalar_tensor(s, at::kHalf);
+    //  new_value = at::Scalar(*reinterpret_cast<const at::Half*>(tensor->DataRaw()));
+    //  break;
+    //}
+    //case onnxruntime::data_types_internal::ToTensorDataType<onnxruntime::BFloat16>(): {
+    //  //auto s = at::Scalar(*reinterpret_cast<const at::BFloat16*>(tensor->DataRaw()));
+    //  //new_value = at::scalar_tensor(s, at::kBFloat16);
+    //  new_value = at::Scalar(*reinterpret_cast<const at::BFloat16*>(tensor->DataRaw()));
+    //  break;
+    //}
     case onnxruntime::data_types_internal::ToTensorDataType<bool>(): {
-      auto s = at::Scalar(*reinterpret_cast<const bool*>(tensor->DataRaw()));
-      new_value = at::scalar_tensor(s, at::kBool);
+      //auto s = at::Scalar(*reinterpret_cast<const bool*>(tensor->DataRaw()));
+      //new_value = at::scalar_tensor(s, at::kBool);
+      //new_value = at::Scalar(*reinterpret_cast<const bool*>(tensor->DataRaw()));
+      new_value = at::IValue(*tensor->Data<bool>());
       break;
     }
-    case onnxruntime::data_types_internal::ToTensorDataType<int16_t>(): {
-      auto s = at::Scalar(*reinterpret_cast<const int16_t*>(tensor->DataRaw()));
-      new_value = at::scalar_tensor(s, at::kShort);
-      break;
-    }
-    case onnxruntime::data_types_internal::ToTensorDataType<int>(): {
-      auto s = at::Scalar(*reinterpret_cast<const int*>(tensor->DataRaw()));
-      new_value = at::scalar_tensor(s, at::kInt);
-      break;
-    }
+    //case onnxruntime::data_types_internal::ToTensorDataType<int16_t>(): {
+    //  //auto s = at::Scalar(*reinterpret_cast<const int16_t*>(tensor->DataRaw()));
+    //  //new_value = at::scalar_tensor(s, at::kShort);
+    //  new_value = at::Scalar(*reinterpret_cast<const int16_t*>(tensor->DataRaw()));
+    //  break;
+    //}
+    //case onnxruntime::data_types_internal::ToTensorDataType<int>(): {
+    //  //auto s = at::Scalar(*reinterpret_cast<const int*>(tensor->DataRaw()));
+    //  //new_value = at::scalar_tensor(s, at::kInt);
+    //  new_value = at::Scalar(*reinterpret_cast<const int*>(tensor->DataRaw()));
+    //  break;
+    //}
     case onnxruntime::data_types_internal::ToTensorDataType<int64_t>(): {
-      auto s = at::Scalar(*reinterpret_cast<const int64_t*>(tensor->DataRaw()));
-      new_value = at::scalar_tensor(s, at::kLong);
+      //auto s = at::Scalar(*reinterpret_cast<const int64_t*>(tensor->DataRaw()));
+      //new_value = at::scalar_tensor(s, at::kLong);
+      //new_value = at::Scalar(*reinterpret_cast<const int64_t*>(tensor->DataRaw()));
+      new_value = at::IValue(*tensor->Data<int64_t>());
       break;
     }
     default:
       ORT_THROW("Unsupport aten scalar type.");
   }
 
-  return c10::IValue(new_value);
+  return new_value;//c10::IValue(new_value);
 }
-*/
 }  // namespace lazytensor
 }  // namespace onnxruntime

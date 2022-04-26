@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#include <string>
 namespace onnxruntime {
 namespace lazytensor {
 // This file contains environment variables that control
@@ -27,7 +28,8 @@ bool DumpGraph();
 // Related functions' dependency graph:
 //  CheckBaseline -> CheckTensorContent -> AbsoluteTolerance
 //                                   '---> RelativeTolerance
-bool CheckBaseline();
+//bool CheckBaseline();
+std::string RunType();
 // If this function returns true, all aten ops seen by ORT
 // will be printed. We also tag if these are supported or not.
 bool DumpAtenOpHistory();
@@ -40,5 +42,26 @@ double AbsoluteTolerance();
 // The "relative_tol" in
 // |value-expected| <= |expected| * relative_tol + absolute_tol
 double RelativeTolerance();
+bool DumpOnnxFusion();
+
+class DynamicSettings {
+public:
+  static DynamicSettings& GetInstance() {
+    static DynamicSettings instance;
+    return instance;
+  }
+  DynamicSettings(DynamicSettings const&) = delete;
+  void operator=(DynamicSettings const&) = delete;
+  bool GetOnnxFusionFlag() const {
+    return onnx_fusion_status_;
+  }
+  void SetOnnxFusionFlag(bool status) {
+    onnx_fusion_status_ = status;
+  }
+private:
+  DynamicSettings() : onnx_fusion_status_(true) {};
+  bool onnx_fusion_status_;
+};
+
 }  // namespace lazytensor
 }  // namespace onnxruntime

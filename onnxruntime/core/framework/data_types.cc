@@ -327,6 +327,7 @@ TensorTypeBase::~TensorTypeBase() {
 
 template <typename T>
 static void Delete(void* p) {
+  //std::cout << "ORT deletes tensor @ " << p << std::endl;
   delete static_cast<T*>(p);
 }
 

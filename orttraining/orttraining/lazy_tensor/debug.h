@@ -15,5 +15,10 @@ bool Compare(const c10::IValue& left, const c10::IValue& right);
 bool CompareStack(const torch::jit::Stack& left, const torch::jit::Stack& right);
 std::string ToString(const c10::IValue& value);
 std::string ToString(const at::ArrayRef<c10::IValue>& values);
+// "torch::jit::Value" is abstract symbol in torch::jit::Graph.
+// It represents inputs and outputs for graph, block, and node. 
+// Note that the actual computation reuslt's type is c10::IValue.
+std::string ToString(const torch::jit::Value& value);
+std::string ToString(const torch::jit::Node& node);
 }  // namespace lazytensor
 }  // namespace onnxruntime

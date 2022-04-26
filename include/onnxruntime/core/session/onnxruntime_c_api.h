@@ -399,6 +399,9 @@ typedef struct OrtCUDAProviderOptions {
   */
   OrtArenaCfg* default_memory_arena_cfg;
 
+  void* (*alloc)(size_t);
+  void (*free)(void*);
+  void (*empty_cache)();
 } OrtCUDAProviderOptions;
 
 /** \brief ROCM Provider Options

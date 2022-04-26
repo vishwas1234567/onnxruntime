@@ -106,7 +106,15 @@ AllocatorPtr CUDAExecutionProvider::CreateCudaAllocator(OrtDevice::DeviceId devi
         false);
 
     return CreateAllocator(default_memory_info);
+  } else if (external_allocator_info.TypeSafeUseExternalAllocator()) {
+    AllocatorCreationInfo default_memory_info(
+        [external_allocator_info](OrtDevice::DeviceId id) {
+          return std::make_unique<CUDAExternalAllocator>(id, CUDA, external_allocator_info.type_safe_alloc, external_allocator_info.type_safe_free, external_allocator_info.type_safe_empty_cache);
+        },
+        device_id,
+        false);
 
+    return CreateAllocator(default_memory_info);
   } else {
     AllocatorCreationInfo default_memory_info(
         [](OrtDevice::DeviceId id) {
@@ -131,7 +139,9 @@ CUDAExecutionProvider::PerThreadContext::PerThreadContext(OrtDevice::DeviceId de
   CUBLAS_CALL_THROW(cublasCreate(&cublas_handle_));
   CUBLAS_CALL_THROW(cublasSetStream(cublas_handle_, stream));
 
+  std::cout << "Before cudnnCreate(&cudnn_handle_) @ " << &cudnn_handle_ << "\n";
   CUDNN_CALL_THROW(cudnnCreate(&cudnn_handle_));
+  std::cout << "After cudnnCreate(&cudnn_handle_) @ " << &cudnn_handle_ << "\n";
   CUDNN_CALL_THROW(cudnnSetStream(cudnn_handle_, stream));
 
   // CUDA malloc/free is expensive so always use an arena
@@ -149,7 +159,9 @@ CUDAExecutionProvider::PerThreadContext::~PerThreadContext() {
   }
 
   try {
+    std::cout << "Before cudnnDestroy(cudnn_handle_) @ " << &cudnn_handle_ << "\n";
     CUDNN_CALL(cudnnDestroy(cudnn_handle_));
+    std::cout << "After cudnnDestroy(cudnn_handle_) @ " << &cudnn_handle_ << "\n";
   } catch (const std::exception& ex) {
     LOGS_DEFAULT(ERROR) << "cudnnDestroy threw:" << ex.what();
   }
@@ -259,6 +271,7 @@ CUDAExecutionProvider::PerThreadContext& CUDAExecutionProvider::GetPerThreadCont
 }
 
 void CUDAExecutionProvider::ReleasePerThreadContext() const {
+  std::cout << "CUDAExecutionProvider::ReleasePerThreadContext" << std::endl;
   const auto& per_thread_context_cache = PerThreadContextCache();
 
   auto cached_context_it = per_thread_context_cache->find(this);

@@ -48,6 +48,47 @@ std::string ToString(const at::ArrayRef<c10::IValue>& values) {
   return ss.str();
 }
 
+std::string ToString(const torch::jit::Value& value) {
+  auto type = value.type();
+  return type->str();
+  //std::stringstream ss;
+  //if (type->isSubtypeOf(*c10::TensorType::get())) {
+  //  auto tensor_type = type->cast<c10::TensorType>();
+  //  ss << "Tensor";
+  //  if (tensor_type->scalarType().has_value()) {
+  //      ss << "<" << c10::toString(tensor_type->scalarType().value()) << "> ";
+  //  }
+  //  ss << "%" << value.debugName();
+  //} else if (type->isSubtypeOf(*c10::NumberType::get())) {
+  //  // Note that floating-point value in Python is double.
+  //  auto scalar_type = c10::scalarTypeFromJitType(*type);
+  //  ss << "Scalar<" << c10::toString(scalar_type) << "> %" << value.debugName();
+  //} else {
+  //  ORT_ENFORCE(false, "Unsupported c10::Type ", type->str());
+  //}
+  //return ss.str();
+}
+
+std::string ToString(const torch::jit::Node& node) {
+  std::stringstream ss;
+  ss << node.kind().toDisplayString() << "(";
+  for (size_t i = 0; i < node.inputs().size(); i++) {
+    ss << ToString(*node.inputs().at(i));
+    if (i != node.inputs().size() - 1) {
+      ss << ", ";
+    }
+  }
+  ss << ") -> (";
+  for (size_t i = 0; i < node.outputs().size(); i++) {
+    ss << ToString(*node.outputs().at(i));
+    if (i != node.outputs().size() - 1) {
+      ss << ", ";
+    }
+  }
+  ss << ")";
+  return ss.str();
+}
+
 bool CompareTensor(
     const at::Tensor& left, const at::Tensor& right) {
   if (left.sizes() != right.sizes()) {
@@ -69,6 +110,17 @@ bool CompareTensor(
 bool CompareScalar(
     const at::Scalar& left, const at::Scalar& right) {
   if (left.type() == right.type()) {
+    if (CheckTensorContent()) {
+      if (left.isFloatingPoint()) {
+        return left.toDouble() == right.toDouble() ? true : false;
+      } else if (left.isIntegral(false)) {
+        return left.toLong() == right.toLong() ? true : false;
+      } else if (left.isBoolean()) {
+        return left.toBool() == right.toBool() ? true : false;
+      } else {
+        return false;
+      }
+    }
     return true;
   } else {
     return false;
